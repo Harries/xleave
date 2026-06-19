@@ -1,0 +1,149 @@
+.x-ai-reply-host {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  font-family:
+    TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.x-ai-reply-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(29, 155, 240, 0.38);
+  border-radius: 999px;
+  color: rgb(29, 155, 240);
+  background: rgba(29, 155, 240, 0.08);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.x-ai-reply-button:hover {
+  background: rgba(29, 155, 240, 0.16);
+}
+
+.x-ai-reply-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.x-ai-reply-panel {
+  position: absolute;
+  z-index: 2147483647;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(420px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid rgb(207, 217, 222);
+  border-radius: 16px;
+  color: rgb(15, 20, 25);
+  background: rgb(255, 255, 255);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+
+.x-ai-reply-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 10px;
+}
+
+.x-ai-reply-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.x-ai-reply-close:hover {
+  background: rgba(15, 20, 25, 0.1);
+}
+
+.x-ai-reply-list {
+  display: grid;
+  gap: 8px;
+}
+
+.x-ai-reply-candidate {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid rgb(239, 243, 244);
+  border-radius: 12px;
+  color: inherit;
+  background: rgb(247, 249, 249);
+  text-align: left;
+  cursor: pointer;
+}
+
+.x-ai-reply-candidate:hover {
+  border-color: rgba(29, 155, 240, 0.6);
+  background: rgba(29, 155, 240, 0.08);
+}
+
+.x-ai-reply-tone {
+  color: rgb(29, 155, 240);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.x-ai-reply-text {
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.x-ai-reply-hint,
+.x-ai-reply-status {
+  padding: 8px 3px 1px;
+  color: rgb(83, 100, 113);
+  font-size: 12px;
+}
+
+.x-ai-reply-error {
+  display: grid;
+  gap: 4px;
+  color: rgb(244, 33, 46);
+  font-size: 13px;
+}
+
+.x-ai-reply-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: x-ai-reply-spin 0.7s linear infinite;
+}
+
+@keyframes x-ai-reply-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .x-ai-reply-panel {
+    border-color: rgb(47, 51, 54);
+    color: rgb(231, 233, 234);
+    background: rgb(0, 0, 0);
+  }
+
+  .x-ai-reply-candidate {
+    border-color: rgb(47, 51, 54);
+    background: rgb(22, 24, 28);
+  }
+}
+
