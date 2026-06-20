@@ -53,6 +53,8 @@ function attachTool(composer) {
   };
   window.addEventListener("resize", repositionPanel);
   window.addEventListener("scroll", repositionPanel, true);
+  window.visualViewport?.addEventListener("resize", repositionPanel);
+  window.visualViewport?.addEventListener("scroll", repositionPanel);
 
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -210,6 +212,7 @@ function renderCandidates(panel, composer, replies) {
 
   const list = panel.querySelector(".x-ai-reply-list");
   replies.slice(0, 3).forEach((reply) => {
+    const replyText = removeExactDuplicate(reply.text);
     const item = document.createElement("button");
     item.type = "button";
     item.className = "x-ai-reply-candidate";
@@ -220,12 +223,19 @@ function renderCandidates(panel, composer, replies) {
 
     const text = document.createElement("span");
     text.className = "x-ai-reply-text";
-    text.textContent = reply.text;
+    text.textContent = replyText;
 
     item.append(tone, text);
-    item.addEventListener("click", () => {
-      fillComposer(composer, reply.text);
-      panel.hidden = true;
+    item.addEventListener("click", async () => {
+      if (item.disabled || composer.dataset.xAiReplyFilling === "true") return;
+
+      item.disabled = true;
+      try {
+        await fillComposer(composer, replyText);
+        panel.hidden = true;
+      } finally {
+        item.disabled = false;
+      }
     });
     list.append(item);
   });
@@ -256,47 +266,149 @@ function positionPanel(panel, button) {
 
   const margin = 12;
   const gap = 10;
+  const viewport = window.visualViewport;
+  const viewportLeft = viewport?.offsetLeft || 0;
+  const viewportTop = viewport?.offsetTop || 0;
+  const viewportWidth = viewport?.width || window.innerWidth;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  const viewportRight = viewportLeft + viewportWidth;
+
   const buttonRect = button.getBoundingClientRect();
+  const availableAbove = Math.max(80, buttonRect.top - viewportTop - gap - margin);
+  panel.style.maxHeight = `${Math.min(
+    viewportHeight - margin * 2,
+    availableAbove
+  )}px`;
+
   const panelRect = panel.getBoundingClientRect();
-  const maxLeft = Math.max(margin, window.innerWidth - panelRect.width - margin);
+  const minLeft = viewportLeft + margin;
+  const maxLeft = Math.max(
+    minLeft,
+    viewportRight - panelRect.width - margin
+  );
   const left = Math.min(
-    Math.max(margin, buttonRect.right - panelRect.width),
+    Math.max(minLeft, buttonRect.right - panelRect.width),
     maxLeft
   );
 
-  const spaceBelow = window.innerHeight - buttonRect.bottom - margin;
-  const spaceAbove = buttonRect.top - margin;
-  const openAbove = panelRect.height > spaceBelow && spaceAbove > spaceBelow;
-  const preferredTop = openAbove
-    ? buttonRect.top - panelRect.height - gap
-    : buttonRect.bottom + gap;
-  const maxTop = Math.max(margin, window.innerHeight - panelRect.height - margin);
-  const top = Math.min(Math.max(margin, preferredTop), maxTop);
-
   panel.style.left = `${Math.round(left)}px`;
-  panel.style.top = `${Math.round(top)}px`;
+  panel.style.top = `${Math.round(buttonRect.top - gap)}px`;
+  panel.style.transform = "translateY(-100%)";
 }
 
-function fillComposer(composer, text) {
-  composer.focus();
+async function fillComposer(composer, text) {
+  const cleanText = removeExactDuplicate(text);
+  composer.dataset.xAiReplyFilling = "true";
 
+  try {
+    await insertTextThroughEditor(composer, cleanText);
+    await nextPaint();
+
+    const actualText = composer.innerText.trim();
+    if (actualText !== cleanText && removeExactDuplicate(actualText) === cleanText) {
+      await insertTextThroughEditor(composer, cleanText);
+      await nextPaint();
+    }
+
+    if (isReplyButtonDisabled(composer)) {
+      await insertTextWithExecCommand(composer, cleanText);
+      await nextPaint();
+    }
+  } finally {
+    delete composer.dataset.xAiReplyFilling;
+  }
+}
+
+async function insertTextThroughEditor(composer, text) {
+  composer.focus();
+  selectComposerContents(composer);
+  document.dispatchEvent(new Event("selectionchange"));
+  await nextPaint();
+
+  try {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", text);
+    const pasteEvent = new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clipboardData
+    });
+    const handledByEditor = !composer.dispatchEvent(pasteEvent);
+
+    if (handledByEditor) return;
+  } catch (error) {
+    console.debug("[X AI Reply] Draft.js paste fallback", error);
+  }
+
+  await insertTextWithExecCommand(composer, text);
+}
+
+async function insertTextWithExecCommand(composer, text) {
+  composer.focus();
+  selectComposerContents(composer);
+  document.dispatchEvent(new Event("selectionchange"));
+  await nextPaint();
+
+  document.execCommand("insertText", false, text);
+  placeCaretAtEnd(composer);
+}
+
+function isReplyButtonDisabled(composer) {
+  const scope =
+    composer.closest('[role="dialog"]') ||
+    composer.closest("form") ||
+    composer.closest("article") ||
+    composer.parentElement?.parentElement?.parentElement;
+  const replyButton =
+    scope?.querySelector('[data-testid="tweetButtonInline"]') ||
+    scope?.querySelector('[data-testid="tweetButton"]');
+
+  if (!(replyButton instanceof HTMLElement)) return false;
+  return (
+    replyButton.getAttribute("aria-disabled") === "true" ||
+    replyButton.hasAttribute("disabled")
+  );
+}
+
+function selectComposerContents(composer) {
   const selection = window.getSelection();
   const range = document.createRange();
   range.selectNodeContents(composer);
   selection.removeAllRanges();
   selection.addRange(range);
+}
 
-  const inserted = document.execCommand("insertText", false, text);
-  if (!inserted) {
-    composer.textContent = text;
-    composer.dispatchEvent(
-      new InputEvent("input", {
-        bubbles: true,
-        inputType: "insertText",
-        data: text
-      })
-    );
+function placeCaretAtEnd(composer) {
+  const selection = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(composer);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function removeExactDuplicate(value) {
+  const text = String(value || "").trim();
+  const characters = [...text];
+  if (characters.length < 12) return text;
+
+  const midpoint = Math.floor(characters.length / 2);
+  for (let split = midpoint - 2; split <= midpoint + 2; split += 1) {
+    if (split <= 0 || split >= characters.length) continue;
+
+    const first = characters.slice(0, split).join("").trim();
+    const second = characters.slice(split).join("").trim();
+    if (first.length >= 6 && first === second) return first;
   }
 
-  composer.dispatchEvent(new Event("change", { bubbles: true }));
+  return text;
+}
+
+function nextPaint() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resolve);
+    });
+  });
 }

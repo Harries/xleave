@@ -18,6 +18,8 @@ test("buildReplyInput clamps length and excludes context when disabled", () => {
   assert.equal(result.maxCharacters, 500);
   assert.match(result.instructions, /Simplified Chinese/);
   assert.match(result.instructions, /简洁/);
+  assert.match(result.instructions, /real person casually joining a conversation/);
+  assert.match(result.instructions, /Avoid canned openings/);
   assert.deepEqual(JSON.parse(result.input).visibleThreadContext, []);
 });
 
@@ -38,4 +40,3 @@ test("buildReplyInput keeps at most the last three context posts", () => {
     ["2", "3", "4"]
   );
 });
-

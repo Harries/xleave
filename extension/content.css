@@ -36,18 +36,27 @@
 .x-ai-reply-panel {
   position: fixed;
   z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   width: min(420px, calc(100vw - 32px));
   max-height: calc(100vh - 24px);
-  overflow: auto;
+  overflow: hidden;
   padding: 12px;
   border: 1px solid rgb(207, 217, 222);
   border-radius: 16px;
   color: rgb(15, 20, 25);
   background: rgb(255, 255, 255);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  transform-origin: bottom right;
+}
+
+.x-ai-reply-panel[hidden] {
+  display: none !important;
 }
 
 .x-ai-reply-heading {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -71,8 +80,14 @@
 }
 
 .x-ai-reply-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   gap: 8px;
+  padding-right: 2px;
 }
 
 .x-ai-reply-candidate {
@@ -103,20 +118,40 @@
   font-size: 14px;
   line-height: 1.45;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .x-ai-reply-hint,
 .x-ai-reply-status {
+  flex: 0 0 auto;
   padding: 8px 3px 1px;
   color: rgb(83, 100, 113);
   font-size: 12px;
 }
 
 .x-ai-reply-error {
+  overflow: auto;
   display: grid;
   gap: 4px;
   color: rgb(244, 33, 46);
   font-size: 13px;
+}
+
+@media (max-width: 480px), (max-height: 520px) {
+  .x-ai-reply-panel {
+    width: calc(100vw - 16px);
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .x-ai-reply-heading {
+    margin-bottom: 8px;
+  }
+
+  .x-ai-reply-candidate {
+    padding: 9px 10px;
+  }
 }
 
 .x-ai-reply-spinner {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X AI Reply Assistant",
-  "version": "0.2.1",
+  "version": "0.2.7",
   "description": "在 X 回复框旁生成多种风格的 AI 回复候选，由用户确认后发送。",
   "permissions": ["storage"],
   "host_permissions": [

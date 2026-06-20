@@ -388,7 +388,7 @@ cd xleave
 3. 打开右上角的 **开发者模式**。
 4. 点击 **加载已解压的扩展程序**。
 5. 选择项目中的 `extension` 文件夹。
-6. 确认插件版本不低于 `0.2.1`。
+6. 确认插件版本不低于 `0.2.7`。
 7. 打开或刷新 `https://x.com`。
 
 必须选择包含 `manifest.json` 的 `extension` 文件夹，不要选择整个项目目录或 ZIP 文件。
@@ -552,7 +552,7 @@ No Next.js version detected
 ### 插件提示 Failed to fetch
 
 - 在浏览器中直接打开 `https://xleave.59et.com/health`。
-- 确认插件版本不低于 `0.2.1`。
+- 确认插件版本不低于 `0.2.7`。
 - 在 `chrome://extensions` 重新加载插件。
 - 确认插件设置里的后端地址没有端口和接口路径。
 - 刷新 X 页面。
