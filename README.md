@@ -6,6 +6,17 @@
 
 - `extension/`：Chrome 插件，无构建步骤
 - `server/`：Node.js 后端，负责安全保存 OpenAI API Key 并生成回复
+- `docs/DEPLOYMENT.zh-CN.md`：完整的后端部署与 Chrome 插件安装指南
+
+## 部署与安装文档
+
+请阅读 [部署与安装指南](docs/DEPLOYMENT.zh-CN.md)。文档包含：
+
+- 本机快速运行
+- Linux、systemd、Nginx 和 HTTPS 生产部署
+- Chrome 开发者模式安装与配置
+- 插件打包和 Chrome Web Store 发布准备
+- 更新、故障排查和上线安全检查
 
 ## 运行后端
 
@@ -69,4 +80,3 @@ curl http://localhost:8787/health
 ## 已知限制
 
 X 会持续调整页面 DOM。插件优先使用 `data-testid` 和 ARIA 属性，但 X 改版后仍可能需要更新选择器。帖子仅含图片、视频而没有可提取文字时，当前版本会提示没有识别到原帖文字。
-
