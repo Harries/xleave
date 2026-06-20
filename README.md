@@ -6,7 +6,13 @@
 
 - `extension/`：Chrome 插件，无构建步骤
 - `server/`：Node.js 后端，负责安全保存 OpenAI API Key 并生成回复
+- `docs/ARCHITECTURE.zh-CN.md`：系统技术架构、数据流和安全设计
 - `docs/DEPLOYMENT.zh-CN.md`：完整的后端部署与 Chrome 插件安装指南
+
+## 技术文档
+
+- [技术架构](docs/ARCHITECTURE.zh-CN.md)
+- [部署与安装指南](docs/DEPLOYMENT.zh-CN.md)
 
 ## 部署与安装文档
 

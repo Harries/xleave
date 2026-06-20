@@ -308,8 +308,8 @@ curl -X POST https://xleave.59et.com/api/replies \
 | --- | --- |
 | `后端尚未配置 XLEAVE_API_TOKEN` | Vercel 没有配置接口访问令牌，或配置后没有重新部署 |
 | `访问令牌无效` | 请求未携带令牌，或插件令牌与 Vercel 配置不一致 |
-| `后端尚未配置 XLEAVE_ALLOWED_IPS` | Vercel 没有配置有效的公网 IP 白名单 |
-| `当前公网 IP 不允许访问` | 请求出口 IP 不在白名单中 |
+| `后端尚未配置 XLEAVE_ALLOWED_IPS；当前公网 IP：<IP>` | Vercel 没有配置有效白名单；提示中的 IP 可直接用于配置 |
+| `当前公网 IP 不允许访问：<IP>` | 返回的请求出口 IP 不在白名单中 |
 | `后端尚未配置 OPENAI_API_KEY` | Vercel 没有配置环境变量，或配置后没有重新部署 |
 | `OpenAI API Key 无效` | API Key 错误或已失效 |
 | HTTP 429 | OpenAI 额度不足或触发速率限制 |
@@ -388,7 +388,7 @@ cd xleave
 3. 打开右上角的 **开发者模式**。
 4. 点击 **加载已解压的扩展程序**。
 5. 选择项目中的 `extension` 文件夹。
-6. 确认插件版本不低于 `0.2.0`。
+6. 确认插件版本不低于 `0.2.1`。
 7. 打开或刷新 `https://x.com`。
 
 必须选择包含 `manifest.json` 的 `extension` 文件夹，不要选择整个项目目录或 ZIP 文件。
@@ -552,7 +552,7 @@ No Next.js version detected
 ### 插件提示 Failed to fetch
 
 - 在浏览器中直接打开 `https://xleave.59et.com/health`。
-- 确认插件版本不低于 `0.2.0`。
+- 确认插件版本不低于 `0.2.1`。
 - 在 `chrome://extensions` 重新加载插件。
 - 确认插件设置里的后端地址没有端口和接口路径。
 - 刷新 X 页面。
@@ -566,6 +566,12 @@ No Next.js version detected
 - 如果重新生成过令牌，每台安装插件的浏览器都需要更新设置。
 
 ### 提示当前公网 IP 不允许访问
+
+错误提示会直接显示后端检测到的公网 IP；Vercel Logs 中也会输出：
+
+```text
+[X AI Reply] request public IP: 203.0.113.10
+```
 
 先查询当前出口 IP：
 

@@ -2,20 +2,24 @@ import { isIP } from "node:net";
 
 export function requireAllowedIp(request, response, next) {
   const allowedIps = parseAllowedIps(process.env.XLEAVE_ALLOWED_IPS);
+  const clientIp = getClientIp(request);
+  console.info(`[X AI Reply] request public IP: ${clientIp || "unknown"}`);
 
   if (allowedIps.size === 0) {
     return response.status(503).json({
-      error: "后端尚未配置 XLEAVE_ALLOWED_IPS"
+      error: `后端尚未配置 XLEAVE_ALLOWED_IPS；当前公网 IP：${clientIp || "未识别"}`,
+      clientIp: clientIp || null
     });
   }
 
-  const clientIp = getClientIp(request);
   if (!clientIp || !allowedIps.has(clientIp)) {
     return response.status(403).json({
-      error: "当前公网 IP 不允许访问"
+      error: `当前公网 IP 不允许访问：${clientIp || "未识别"}`,
+      clientIp: clientIp || null
     });
   }
 
+  response.locals.clientIp = clientIp;
   return next();
 }
 

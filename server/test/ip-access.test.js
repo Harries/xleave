@@ -63,7 +63,8 @@ test("requireAllowedIp accepts only configured addresses", () => {
     );
     assert.equal(blocked.statusCode, 403);
     assert.deepEqual(blocked.body, {
-      error: "当前公网 IP 不允许访问"
+      error: "当前公网 IP 不允许访问：198.51.100.20",
+      clientIp: "198.51.100.20"
     });
   } finally {
     restoreEnv("VERCEL", previousVercel);
@@ -72,7 +73,9 @@ test("requireAllowedIp accepts only configured addresses", () => {
 });
 
 test("requireAllowedIp fails closed when no valid list is configured", () => {
+  const previousVercel = process.env.VERCEL;
   const previousAllowedIps = process.env.XLEAVE_ALLOWED_IPS;
+  process.env.VERCEL = "1";
   delete process.env.XLEAVE_ALLOWED_IPS;
 
   try {
@@ -83,7 +86,12 @@ test("requireAllowedIp fails closed when no valid list is configured", () => {
       () => assert.fail("missing allowlist must not call next")
     );
     assert.equal(result.statusCode, 503);
+    assert.deepEqual(result.body, {
+      error: "后端尚未配置 XLEAVE_ALLOWED_IPS；当前公网 IP：203.0.113.10",
+      clientIp: "203.0.113.10"
+    });
   } finally {
+    restoreEnv("VERCEL", previousVercel);
     restoreEnv("XLEAVE_ALLOWED_IPS", previousAllowedIps);
   }
 });
@@ -93,6 +101,7 @@ function createResponse() {
     statusCode: undefined,
     body: undefined,
     response: {
+      locals: {},
       status(code) {
         result.statusCode = code;
         return this;

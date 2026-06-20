@@ -38,11 +38,21 @@ function attachTool(composer) {
       <span aria-hidden="true">✦</span>
       <span>AI 生成回复</span>
     </button>
-    <div class="x-ai-reply-panel" hidden></div>
   `;
 
   const button = root.querySelector(".x-ai-reply-button");
-  const panel = root.querySelector(".x-ai-reply-panel");
+  const panel = document.createElement("div");
+  panel.className = "x-ai-reply-panel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "AI 回复候选");
+  panel.hidden = true;
+  document.body.append(panel);
+
+  const repositionPanel = () => {
+    if (!panel.hidden) positionPanel(panel, button);
+  };
+  window.addEventListener("resize", repositionPanel);
+  window.addEventListener("scroll", repositionPanel, true);
 
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -96,8 +106,8 @@ async function handleGenerate({ composer, button, panel }) {
 function setLoading(button, panel) {
   button.disabled = true;
   button.innerHTML = '<span class="x-ai-reply-spinner" aria-hidden="true"></span><span>生成中…</span>';
-  panel.hidden = false;
   panel.innerHTML = '<div class="x-ai-reply-status">正在阅读对话并构思回复…</div>';
+  showPanel(panel, button);
 }
 
 function extractReplyContext(composer) {
@@ -184,7 +194,6 @@ function isVisible(element) {
 }
 
 function renderCandidates(panel, composer, replies) {
-  panel.hidden = false;
   panel.innerHTML = `
     <div class="x-ai-reply-heading">
       <strong>选择一条回复</strong>
@@ -193,6 +202,7 @@ function renderCandidates(panel, composer, replies) {
     <div class="x-ai-reply-list"></div>
     <div class="x-ai-reply-hint">点击候选会填入回复框，你仍可继续修改。</div>
   `;
+  showPanel(panel);
 
   panel.querySelector(".x-ai-reply-close").addEventListener("click", () => {
     panel.hidden = true;
@@ -222,7 +232,6 @@ function renderCandidates(panel, composer, replies) {
 }
 
 function renderError(panel, message) {
-  panel.hidden = false;
   panel.innerHTML = `
     <div class="x-ai-reply-error">
       <strong>生成失败</strong>
@@ -230,6 +239,42 @@ function renderError(panel, message) {
     </div>
   `;
   panel.querySelector("span").textContent = message;
+  showPanel(panel);
+}
+
+function showPanel(panel, button) {
+  if (button) panel.xAiAnchorButton = button;
+  panel.hidden = false;
+  positionPanel(panel, panel.xAiAnchorButton);
+}
+
+function positionPanel(panel, button) {
+  if (!(button instanceof HTMLElement) || !button.isConnected) {
+    panel.hidden = true;
+    return;
+  }
+
+  const margin = 12;
+  const gap = 10;
+  const buttonRect = button.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const maxLeft = Math.max(margin, window.innerWidth - panelRect.width - margin);
+  const left = Math.min(
+    Math.max(margin, buttonRect.right - panelRect.width),
+    maxLeft
+  );
+
+  const spaceBelow = window.innerHeight - buttonRect.bottom - margin;
+  const spaceAbove = buttonRect.top - margin;
+  const openAbove = panelRect.height > spaceBelow && spaceAbove > spaceBelow;
+  const preferredTop = openAbove
+    ? buttonRect.top - panelRect.height - gap
+    : buttonRect.bottom + gap;
+  const maxTop = Math.max(margin, window.innerHeight - panelRect.height - margin);
+  const top = Math.min(Math.max(margin, preferredTop), maxTop);
+
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.top = `${Math.round(top)}px`;
 }
 
 function fillComposer(composer, text) {
@@ -255,4 +300,3 @@ function fillComposer(composer, text) {
 
   composer.dispatchEvent(new Event("change", { bubbles: true }));
 }
-
