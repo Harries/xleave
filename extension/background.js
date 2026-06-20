@@ -1,10 +1,26 @@
 const DEFAULT_SETTINGS = {
-  backendUrl: "http://localhost:8787",
+  backendUrl: "https://xleave.59et.com",
   language: "auto",
   maxCharacters: 180,
   includeContext: true,
   persona: ""
 };
+
+const LEGACY_BACKEND_URLS = new Set([
+  "http://localhost:8787",
+  "http://127.0.0.1:8787"
+]);
+
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  if (reason !== "install" && reason !== "update") return;
+
+  const { backendUrl } = await chrome.storage.sync.get("backendUrl");
+  if (!backendUrl || LEGACY_BACKEND_URLS.has(backendUrl.replace(/\/+$/, ""))) {
+    await chrome.storage.sync.set({
+      backendUrl: DEFAULT_SETTINGS.backendUrl
+    });
+  }
+});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "GENERATE_REPLIES") {
@@ -25,13 +41,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function generateReplies(payload) {
-  const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+  const [settings, localSettings] = await Promise.all([
+    chrome.storage.sync.get(DEFAULT_SETTINGS),
+    chrome.storage.local.get({ apiToken: "" })
+  ]);
   const backendUrl = settings.backendUrl.replace(/\/+$/, "");
+  const apiToken = localSettings.apiToken.trim();
+
+  if (!apiToken) {
+    throw new Error("请先在插件设置中填写访问令牌");
+  }
 
   const response = await fetch(`${backendUrl}/api/replies`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiToken}`
     },
     body: JSON.stringify({
       ...payload,
@@ -56,4 +81,3 @@ async function generateReplies(payload) {
 
   return data;
 }
-

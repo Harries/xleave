@@ -5,6 +5,8 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
+import { requireApiToken } from "./auth.js";
+import { requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -62,62 +64,73 @@ app.get("/health", (_request, response) => {
   response.json({ ok: true, model: MODEL });
 });
 
-app.post("/api/replies", async (request, response) => {
-  const parsed = ReplyRequest.safeParse(request.body);
-  if (!parsed.success) {
-    return response.status(400).json({
-      error: parsed.error.issues[0]?.message || "请求内容无效"
-    });
-  }
+app.post(
+  "/api/replies",
+  requireApiToken,
+  requireAllowedIp,
+  async (request, response) => {
+    response.set("Cache-Control", "no-store");
 
-  if (!process.env.OPENAI_API_KEY) {
-    return response.status(500).json({
-      error: "后端尚未配置 OPENAI_API_KEY"
-    });
-  }
-
-  try {
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const prompt = buildReplyInput(parsed.data);
-
-    const result = await client.responses.parse({
-      model: MODEL,
-      reasoning: { effort: "low" },
-      instructions: prompt.instructions,
-      input: prompt.input,
-      text: {
-        format: zodTextFormat(ReplyOutput, "x_reply_candidates"),
-        verbosity: "low"
-      },
-      store: false
-    });
-
-    if (!result.output_parsed) {
-      throw new Error("模型没有返回结构化结果");
+    const parsed = ReplyRequest.safeParse(request.body);
+    if (!parsed.success) {
+      return response.status(400).json({
+        error: parsed.error.issues[0]?.message || "请求内容无效"
+      });
     }
 
-    const replies = result.output_parsed.replies.map((reply) => ({
-      ...reply,
-      text: trimToCharacters(reply.text.trim(), prompt.maxCharacters)
-    }));
+    if (!process.env.OPENAI_API_KEY) {
+      return response.status(500).json({
+        error: "后端尚未配置 OPENAI_API_KEY"
+      });
+    }
 
-    return response.json({ replies });
-  } catch (error) {
-    console.error(error);
-    const status = Number(error?.status);
-    return response.status(status >= 400 && status < 600 ? status : 502).json({
-      error: publicError(error)
-    });
+    try {
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const prompt = buildReplyInput(parsed.data);
+
+      const result = await client.responses.parse({
+        model: MODEL,
+        reasoning: { effort: "low" },
+        instructions: prompt.instructions,
+        input: prompt.input,
+        text: {
+          format: zodTextFormat(ReplyOutput, "x_reply_candidates"),
+          verbosity: "low"
+        },
+        store: false
+      });
+
+      if (!result.output_parsed) {
+        throw new Error("模型没有返回结构化结果");
+      }
+
+      const replies = result.output_parsed.replies.map((reply) => ({
+        ...reply,
+        text: trimToCharacters(reply.text.trim(), prompt.maxCharacters)
+      }));
+
+      return response.json({ replies });
+    } catch (error) {
+      console.error(error);
+      const status = Number(error?.status);
+      return response.status(status >= 400 && status < 600 ? status : 502).json({
+        error: publicError(error)
+      });
+    }
   }
-});
+);
 
 app.use((_request, response) => {
   response.status(404).json({ error: "接口不存在" });
 });
 
-app.listen(PORT, "127.0.0.1", () => {
-  console.log(`X AI Reply server listening on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, "127.0.0.1", () => {
+    console.log(`X AI Reply server listening on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
 
 function trimToCharacters(text, maxCharacters) {
   return [...text].slice(0, maxCharacters).join("");
@@ -131,4 +144,3 @@ function publicError(error) {
   }
   return "AI 服务暂时不可用，请稍后重试";
 }
-

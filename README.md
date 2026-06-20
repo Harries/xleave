@@ -13,9 +13,9 @@
 请阅读 [部署与安装指南](docs/DEPLOYMENT.zh-CN.md)。文档包含：
 
 - 本机快速运行
-- Linux、systemd、Nginx 和 HTTPS 生产部署
+- Vercel 部署及环境变量配置
+- 绑定生产域名 `xleave.59et.com` 和配置 DNS
 - Chrome 开发者模式安装与配置
-- 插件打包和 Chrome Web Store 发布准备
 - 更新、故障排查和上线安全检查
 
 ## 运行后端
@@ -33,6 +33,8 @@ cp .env.example .env
 ```dotenv
 OPENAI_API_KEY=你的_OpenAI_API_Key
 OPENAI_MODEL=gpt-5.4-mini
+XLEAVE_API_TOKEN=使用_openssl_rand_hex_32_生成的令牌
+XLEAVE_ALLOWED_IPS=你的公网IPv4,你的公网IPv6
 PORT=8787
 ```
 
@@ -58,6 +60,7 @@ curl http://localhost:8787/health
 6. 点击任意帖子的回复按钮，再点击「AI 生成回复」
 
 点击插件图标可以进入设置页面，修改回复语言、字数和个人表达风格。
+首次使用还需要填写与后端 `XLEAVE_API_TOKEN` 相同的访问令牌。
 
 ## 当前行为
 
@@ -69,13 +72,22 @@ curl http://localhost:8787/health
 
 ## 部署后端
 
-当前 `manifest.json` 只允许访问 `localhost` 和 `127.0.0.1`。部署到线上后：
+插件默认使用以下线上后端：
 
-1. 将线上 HTTPS 域名加入 `extension/manifest.json` 的 `host_permissions`
-2. 在插件设置中把后端地址改为线上地址
-3. 后端增加用户鉴权、速率限制、日志脱敏和来源校验
+```text
+https://xleave.59et.com
+```
+
+`manifest.json` 已允许访问该域名，同时保留 `localhost` 和 `127.0.0.1` 供本地开发使用。正式对外服务还应增加用户鉴权、速率限制、日志脱敏和来源校验。
 
 不要把 `OPENAI_API_KEY` 写进插件代码。
+
+`/api/replies` 已启用 Bearer Token 和公网 IP 白名单双重认证：
+
+- `XLEAVE_API_TOKEN`：插件访问令牌。
+- `XLEAVE_ALLOWED_IPS`：允许访问的公网 IPv4/IPv6，以英文逗号分隔。
+
+插件将访问令牌保存在当前浏览器的本地扩展存储中。只有令牌正确且来源公网 IP 在白名单中的请求才会进入 AI 接口。
 
 ## 已知限制
 

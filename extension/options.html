@@ -9,12 +9,26 @@
   <body>
     <main>
       <h1>X AI Reply Assistant</h1>
-      <p class="intro">配置回复语言、长度和你的表达风格。API Key 只保存在后端，不会进入插件。</p>
+      <p class="intro">配置服务地址、访问令牌和回复风格。OpenAI API Key 只保存在后端，不会进入插件。</p>
 
       <form id="settings-form">
         <label>
           后端地址
           <input id="backendUrl" name="backendUrl" type="url" required />
+        </label>
+
+        <label>
+          访问令牌
+          <input
+            id="apiToken"
+            name="apiToken"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            placeholder="填写 Vercel 的 XLEAVE_API_TOKEN"
+          />
+          <small>令牌只保存在当前浏览器本地，不会通过 Chrome 同步。</small>
         </label>
 
         <label>
@@ -57,4 +71,3 @@
     <script src="options.js"></script>
   </body>
 </html>
-
