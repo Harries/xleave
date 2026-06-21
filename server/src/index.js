@@ -9,6 +9,7 @@ import { requireUser } from "./auth.js";
 import { registerAdminRoutes } from "./admin.js";
 import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
+import { recordUserUsage } from "./user-store.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
@@ -117,6 +118,12 @@ app.post(
         ...reply,
         text: trimToCharacters(reply.text.trim(), prompt.maxCharacters)
       }));
+
+      try {
+        await recordUserUsage(response.locals.user);
+      } catch (usageError) {
+        console.error("[X AI Reply] failed to record usage", usageError);
+      }
 
       return response.json({ replies });
     } catch (error) {

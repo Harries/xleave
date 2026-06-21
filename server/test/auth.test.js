@@ -66,7 +66,8 @@ test("requireUser authenticates a configured user", async () => {
     assert.equal(nextCalled, true);
     assert.deepEqual(result.response.locals.user, {
       id: "harries",
-      allowedIps: ["203.0.113.10", "2001:db8::1"]
+      allowedIps: ["203.0.113.10", "2001:db8::1"],
+      source: "environment"
     });
   });
 });

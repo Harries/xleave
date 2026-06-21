@@ -40,7 +40,15 @@ export async function listUsers() {
   const sql = requireSql();
   await ensureSchema();
   const rows = await sql`
-    SELECT id, token_hint, allowed_ips, enabled, created_at, updated_at
+    SELECT
+      id,
+      token_hint,
+      allowed_ips,
+      enabled,
+      usage_count,
+      last_used_at,
+      created_at,
+      updated_at
     FROM xleave_users
     ORDER BY id ASC
   `;
@@ -71,7 +79,9 @@ export async function createUser({ id, allowedIps, token }) {
         ${JSON.stringify(normalizedIps)}::jsonb,
         TRUE
       )
-      RETURNING id, token_hint, allowed_ips, enabled, created_at, updated_at
+      RETURNING
+        id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
+        created_at, updated_at
     `;
     return { user: mapStoredUser(rows[0]), token: plainToken };
   } catch (error) {
@@ -88,7 +98,9 @@ export async function updateUserIps(id, allowedIps) {
     UPDATE xleave_users
     SET allowed_ips = ${JSON.stringify(normalizedIps)}::jsonb, updated_at = NOW()
     WHERE id = ${normalizedId}
-    RETURNING id, token_hint, allowed_ips, enabled, created_at, updated_at
+    RETURNING
+      id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
+      created_at, updated_at
   `;
   if (!rows[0]) throw new Error("用户不存在");
   return mapStoredUser(rows[0]);
@@ -102,7 +114,9 @@ export async function setUserEnabled(id, enabled) {
     UPDATE xleave_users
     SET enabled = ${Boolean(enabled)}, updated_at = NOW()
     WHERE id = ${normalizedId}
-    RETURNING id, token_hint, allowed_ips, enabled, created_at, updated_at
+    RETURNING
+      id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
+      created_at, updated_at
   `;
   if (!rows[0]) throw new Error("用户不存在");
   return mapStoredUser(rows[0]);
@@ -123,7 +137,9 @@ export async function rotateUserToken(id, token) {
         token_hint = ${plainToken.slice(-6)},
         updated_at = NOW()
       WHERE id = ${normalizedId}
-      RETURNING id, token_hint, allowed_ips, enabled, created_at, updated_at
+      RETURNING
+        id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
+        created_at, updated_at
     `;
     if (!rows[0]) throw new Error("用户不存在");
     return { user: mapStoredUser(rows[0]), token: plainToken };
@@ -144,6 +160,20 @@ export async function deleteUser(id) {
   if (!rows[0]) throw new Error("用户不存在");
 }
 
+export async function recordUserUsage(user) {
+  if (user?.source !== "neon" || !isUserStoreConfigured()) return;
+
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE xleave_users
+    SET
+      usage_count = usage_count + 1,
+      last_used_at = NOW()
+    WHERE id = ${user.id}
+  `;
+}
+
 export function generateToken() {
   return randomBytes(32).toString("hex");
 }
@@ -154,17 +184,30 @@ export function hashToken(token) {
 
 async function ensureSchema() {
   if (!isUserStoreConfigured()) return;
-  schemaPromise ||= getSql()`
-    CREATE TABLE IF NOT EXISTS xleave_users (
-      id VARCHAR(64) PRIMARY KEY,
-      token_hash CHAR(64) UNIQUE NOT NULL,
-      token_hint VARCHAR(6) NOT NULL,
-      allowed_ips JSONB NOT NULL DEFAULT '[]'::jsonb,
-      enabled BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
+  schemaPromise ||= (async () => {
+    const sql = getSql();
+    await sql`
+      CREATE TABLE IF NOT EXISTS xleave_users (
+        id VARCHAR(64) PRIMARY KEY,
+        token_hash CHAR(64) UNIQUE NOT NULL,
+        token_hint VARCHAR(6) NOT NULL,
+        allowed_ips JSONB NOT NULL DEFAULT '[]'::jsonb,
+        enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        usage_count BIGINT NOT NULL DEFAULT 0,
+        last_used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS usage_count BIGINT NOT NULL DEFAULT 0
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ
+    `;
+  })();
   try {
     await schemaPromise;
   } catch (error) {
@@ -249,6 +292,8 @@ function mapStoredUser(row) {
     tokenHint: row.token_hint,
     allowedIps: row.allowed_ips,
     enabled: row.enabled,
+    usageCount: Number(row.usage_count || 0),
+    lastUsedAt: row.last_used_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

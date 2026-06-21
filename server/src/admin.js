@@ -332,8 +332,15 @@ function renderUser(user) {
   return `
     <article class="user-card">
       <div class="user-head">
-        <div><h3>${escapeHtml(user.id)}</h3><span class="badge ${user.enabled === false ? "off" : ""}">${user.enabled === false ? "已停用" : "启用中"}</span></div>
+        <div>
+          <h3>${escapeHtml(user.id)}</h3>
+          <span class="badge ${user.enabled === false ? "off" : ""}">${user.enabled === false ? "已停用" : "启用中"}</span>
+        </div>
         <small>Token 尾号 ···${escapeHtml(user.tokenHint || "未知")}</small>
+      </div>
+      <div class="usage-stats">
+        <div><strong>${formatCount(user.usageCount)}</strong><span>累计 AI 使用次数</span></div>
+        <div><strong>${escapeHtml(formatUsageDate(user.lastUsedAt))}</strong><span>最后使用时间</span></div>
       </div>
       <form method="post" action="/admin/users/${id}/ips">
         <label>公网 IP 白名单
@@ -374,6 +381,7 @@ function page(title, content) {
         button{padding:9px 14px;border:0;background:#1d9bf0;color:#fff;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#536471}.danger{background:#f4212e}
         .actions{margin-top:14px;flex-wrap:wrap}.actions form:first-child{display:flex;flex:1;gap:8px;min-width:260px}.alert,.secret{margin-top:14px;padding:14px 16px;border-radius:12px}.success{background:#e8f8f1;color:#087a50}.error{background:#fff0f1;color:#b31321}.secret{background:#fff8db;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.secret code{overflow-wrap:anywhere}
         .badge{padding:3px 8px;border-radius:999px;background:#e8f8f1;color:#087a50;font-size:12px}.badge.off{background:#eef1f3;color:#536471}.count{font-size:14px;color:#536471}.empty{margin:0}
+        .usage-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}.usage-stats>div{display:grid;gap:3px;padding:12px;border-radius:10px;background:#f5f7f9}.usage-stats strong{font-size:18px}.usage-stats span{color:#536471;font-size:12px}
         code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}@media(max-width:600px){header,.user-head{align-items:flex-start}.actions{align-items:stretch}.actions form{width:100%}}
       </style>
     </head>
@@ -452,6 +460,26 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function formatCount(value) {
+  const count = Number(value || 0);
+  return Number.isFinite(count) ? count.toLocaleString("zh-CN") : "0";
+}
+
+function formatUsageDate(value) {
+  if (!value) return "尚未使用";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
 }
 
 function publicMessage(error) {

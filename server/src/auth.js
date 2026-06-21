@@ -28,7 +28,8 @@ export async function requireUser(request, response, next) {
 
   response.locals.user = {
     id: user.id,
-    allowedIps: user.allowedIps
+    allowedIps: user.allowedIps,
+    source: user.source
   };
   return next();
 }

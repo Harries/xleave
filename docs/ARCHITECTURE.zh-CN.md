@@ -324,11 +324,23 @@ xleave_users
 ├── token_hint
 ├── allowed_ips（JSONB）
 ├── enabled
+├── usage_count
+├── last_used_at
 ├── created_at
 └── updated_at
 ```
 
 API 收到 Token 后先计算 SHA-256，再通过 `token_hash` 唯一索引找到用户，不需要插件提交用户 ID。应用首次访问数据库时会执行 `CREATE TABLE IF NOT EXISTS`。
+
+OpenAI 成功返回结构化候选后，后端原子执行：
+
+```sql
+UPDATE xleave_users
+SET usage_count = usage_count + 1, last_used_at = NOW()
+WHERE id = $1;
+```
+
+统计写入失败不会影响已经生成的回复，但会记录服务端错误日志。环境变量兜底用户不做持久化统计。
 
 ## 7. 安全架构
 
