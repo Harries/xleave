@@ -20,6 +20,7 @@ test("buildReplyInput clamps length and excludes context when disabled", () => {
   assert.match(result.instructions, /简洁/);
   assert.match(result.instructions, /real person casually joining a conversation/);
   assert.match(result.instructions, /Avoid canned openings/);
+  assert.match(result.instructions, /exactly five meaningfully different candidates/);
   assert.deepEqual(JSON.parse(result.input).visibleThreadContext, []);
 });
 

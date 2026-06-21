@@ -48,12 +48,12 @@ const ReplyOutput = z.object({
   replies: z
     .array(
       z.object({
-        tone: z.enum(["friendly", "professional", "witty"]),
+        tone: z.enum(["friendly", "concise", "thoughtful", "curious", "witty"]),
         label: z.string(),
         text: z.string()
       })
     )
-    .length(3)
+    .length(5)
 });
 
 const app = express();

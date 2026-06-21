@@ -1,8 +1,13 @@
 const TOOL_ATTR = "data-x-ai-reply-tool";
 const COMPOSER_SELECTOR =
   '[data-testid^="tweetTextarea_"][contenteditable="true"], div[role="textbox"][contenteditable="true"]';
+const REPLY_TARGET_TTL_MS = 5 * 60 * 1000;
 
 let scanQueued = false;
+let pendingReplyTarget = null;
+const composerSources = new WeakMap();
+
+document.addEventListener("click", captureReplyTarget, true);
 
 const observer = new MutationObserver(queueScan);
 observer.observe(document.documentElement, {
@@ -20,6 +25,23 @@ function queueScan() {
     scanQueued = false;
     document.querySelectorAll(COMPOSER_SELECTOR).forEach(attachTool);
   });
+}
+
+function captureReplyTarget(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const article = target.closest('[data-testid="reply"]')?.closest("article");
+  if (!article) return;
+
+  const source = extractPost(article);
+  if (!source.text) return;
+
+  pendingReplyTarget = {
+    article,
+    source,
+    capturedAt: Date.now()
+  };
 }
 
 function attachTool(composer) {
@@ -115,20 +137,42 @@ function setLoading(button, panel) {
 function extractReplyContext(composer) {
   const dialog = composer.closest('[role="dialog"]');
   const ownArticle = composer.closest("article");
-  const candidateArticles = [
-    ...(dialog?.querySelectorAll("article") || []),
-    ...(ownArticle ? [ownArticle] : []),
-    ...document.querySelectorAll("main article")
+  const dialogArticles = [...(dialog?.querySelectorAll("article") || [])].filter(isVisible);
+  const pageArticles = [...document.querySelectorAll("main article")].filter(isVisible);
+  const uniqueArticles = [
+    ...new Set([
+      ...dialogArticles,
+      ...(ownArticle ? [ownArticle] : []),
+      ...pageArticles
+    ])
   ];
 
-  const uniqueArticles = [...new Set(candidateArticles)].filter(isVisible);
-  const sourceArticle = chooseSourceArticle(uniqueArticles, composer);
-  const source = sourceArticle ? extractPost(sourceArticle) : null;
+  const lockedSource = getLockedSource(
+    composer,
+    dialog,
+    ownArticle,
+    dialogArticles
+  );
+  const routeArticle =
+    !lockedSource && dialogArticles.length === 0 && !ownArticle
+      ? findCurrentStatusArticle(pageArticles)
+      : null;
+  const sourceArticle = lockedSource
+    ? null
+    : routeArticle ||
+      chooseSourceArticle(
+        dialogArticles.length > 0
+          ? dialogArticles
+          : ownArticle
+            ? [ownArticle]
+            : pageArticles,
+        composer
+      );
+  const source = lockedSource || (sourceArticle ? extractPost(sourceArticle) : null);
 
   const thread = uniqueArticles
-    .filter((article) => article !== sourceArticle)
     .map(extractPost)
-    .filter((post) => post.text && post.text !== source?.text)
+    .filter((post) => post.text && !isSamePost(post, source))
     .slice(-3);
 
   return {
@@ -142,6 +186,64 @@ function extractReplyContext(composer) {
     draft: composer.innerText.trim(),
     pageUrl: location.href
   };
+}
+
+function getLockedSource(composer, dialog, ownArticle, dialogArticles) {
+  if (pendingReplyTarget) {
+    if (Date.now() - pendingReplyTarget.capturedAt > REPLY_TARGET_TTL_MS) {
+      pendingReplyTarget = null;
+    } else {
+      const matchesComposer =
+        Boolean(dialog) ||
+        Boolean(ownArticle && ownArticle === pendingReplyTarget.article);
+      if (matchesComposer) {
+        const source = pendingReplyTarget.source;
+        composerSources.set(composer, source);
+        pendingReplyTarget = null;
+        return source;
+      }
+    }
+  }
+
+  const existing = composerSources.get(composer);
+  if (!existing) return null;
+
+  const scopeArticles = dialog
+    ? dialogArticles
+    : ownArticle
+      ? [ownArticle]
+      : [];
+  const stillMatches = scopeArticles.some((article) =>
+    isSamePost(extractPost(article), existing)
+  );
+
+  if (stillMatches) return existing;
+  composerSources.delete(composer);
+  return null;
+}
+
+function isSamePost(post, source) {
+  if (!source) return false;
+  if (post.url && source.url && post.url === source.url) return true;
+  return post.text === source.text && post.handle === source.handle;
+}
+
+function findCurrentStatusArticle(articles) {
+  const statusMatch = location.pathname.match(/^\/[^/]+\/status\/\d+/);
+  if (!statusMatch) return null;
+
+  return (
+    articles.find((article) => {
+      const post = extractPost(article);
+      if (!post.url) return false;
+
+      try {
+        return new URL(post.url).pathname.startsWith(statusMatch[0]);
+      } catch {
+        return false;
+      }
+    }) || null
+  );
 }
 
 function chooseSourceArticle(articles, composer) {
@@ -164,6 +266,7 @@ function extractPost(article) {
   const userName = article.querySelector('[data-testid="User-Name"]');
   const textNodes = article.querySelectorAll('[data-testid="tweetText"]');
   const text = [...textNodes]
+    .filter((node) => node.closest("article") === article)
     .map((node) => node.innerText.trim())
     .filter(Boolean)
     .join("\n");
@@ -171,7 +274,9 @@ function extractPost(article) {
   const profileLink = [...(userName?.querySelectorAll('a[href^="/"]') || [])].find((link) =>
     /^\/[^/]+$/.test(link.getAttribute("href") || "")
   );
-  const statusLink = article.querySelector('a[href*="/status/"]');
+  const statusLink =
+    article.querySelector('a[href*="/status/"] time')?.closest("a") ||
+    article.querySelector('a[href*="/status/"]');
   const labels = userName?.innerText
     .split("\n")
     .map((item) => item.trim())
@@ -211,7 +316,7 @@ function renderCandidates(panel, composer, replies) {
   });
 
   const list = panel.querySelector(".x-ai-reply-list");
-  replies.slice(0, 3).forEach((reply) => {
+  replies.slice(0, 5).forEach((reply) => {
     const replyText = removeExactDuplicate(reply.text);
     const item = document.createElement("button");
     item.type = "button";
