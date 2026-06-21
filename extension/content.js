@@ -105,6 +105,11 @@ function findToolbar(composer) {
 async function handleGenerate({ composer, button, panel }) {
   if (button.disabled) return;
 
+  if (!isExtensionContextAvailable()) {
+    renderContextInvalidated(panel, button);
+    return;
+  }
+
   setLoading(button, panel);
 
   try {
@@ -120,7 +125,12 @@ async function handleGenerate({ composer, button, panel }) {
 
     renderCandidates(panel, composer, response.data.replies);
   } catch (error) {
-    renderError(panel, error instanceof Error ? error.message : "无法生成回复");
+    const message = error instanceof Error ? error.message : "无法生成回复";
+    if (isExtensionContextError(message)) {
+      renderContextInvalidated(panel, button);
+    } else {
+      renderError(panel, message);
+    }
   } finally {
     button.disabled = false;
     button.innerHTML = '<span aria-hidden="true">✦</span><span>重新生成</span>';
@@ -355,6 +365,34 @@ function renderError(panel, message) {
   `;
   panel.querySelector("span").textContent = message;
   showPanel(panel);
+}
+
+function renderContextInvalidated(panel, button) {
+  panel.innerHTML = `
+    <div class="x-ai-reply-error x-ai-reply-context-error">
+      <strong>插件已更新</strong>
+      <span>当前 X 页面仍在使用旧版插件，请刷新页面后再试。</span>
+      <button class="x-ai-reply-refresh" type="button">刷新 X 页面</button>
+    </div>
+  `;
+  panel.querySelector(".x-ai-reply-refresh").addEventListener("click", () => {
+    window.location.reload();
+  });
+  showPanel(panel, button);
+}
+
+function isExtensionContextAvailable() {
+  try {
+    return Boolean(chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+function isExtensionContextError(message) {
+  return /extension context invalidated|receiving end does not exist|message port closed/i.test(
+    message
+  );
 }
 
 function showPanel(panel, button) {

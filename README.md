@@ -39,8 +39,8 @@ cp .env.example .env
 ```dotenv
 OPENAI_API_KEY=你的_OpenAI_API_Key
 OPENAI_MODEL=gpt-5.4-mini
-XLEAVE_API_TOKEN=使用_openssl_rand_hex_32_生成的令牌
-XLEAVE_ALLOWED_IPS=你的公网IPv4,你的公网IPv6
+XLEAVE_ADMIN_TOKEN=管理员登录密钥
+DATABASE_URL=Neon连接字符串
 PORT=8787
 ```
 
@@ -66,7 +66,7 @@ curl http://localhost:8787/health
 6. 点击任意帖子的回复按钮，再点击「AI 生成回复」
 
 点击插件图标可以进入设置页面，修改回复语言、字数和个人表达风格。
-首次使用还需要填写与后端 `XLEAVE_API_TOKEN` 相同的访问令牌。
+首次使用还需要填写自己的访问令牌。
 
 ## 当前行为
 
@@ -88,12 +88,15 @@ https://xleave.59et.com
 
 不要把 `OPENAI_API_KEY` 写进插件代码。
 
-`/api/replies` 已启用 Bearer Token 和公网 IP 白名单双重认证：
+`/api/replies` 已启用多用户、Bearer Token 和公网 IP 白名单双重认证。正式用户配置保存在 Neon Postgres，并通过管理员后台维护：
 
-- `XLEAVE_API_TOKEN`：插件访问令牌。
-- `XLEAVE_ALLOWED_IPS`：允许访问的公网 IPv4/IPv6，以英文逗号分隔。
+```text
+https://xleave.59et.com/admin
+```
 
-插件将访问令牌保存在当前浏览器的本地扩展存储中。只有令牌正确且来源公网 IP 在白名单中的请求才会进入 AI 接口。
+每个用户在后端拥有独立的 `id`、Token 和 `allowedIps`。管理员可以创建、停用、删除用户，修改 IP 和轮换 Token。Token 在 Neon 中只保存哈希，明文仅显示一次。插件只需填写 Token；后端通过唯一 Token 自动识别用户，并校验该用户的真实来源公网 IP。
+
+后台需要配置 `XLEAVE_ADMIN_TOKEN` 和 Neon 的 `DATABASE_URL`。`XLEAVE_USERS` 继续作为旧版迁移兜底。
 
 ## 已知限制
 

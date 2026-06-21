@@ -17,6 +17,11 @@
           <input id="backendUrl" name="backendUrl" type="url" required />
         </label>
 
+        <div class="ip-check">
+          <button id="check-ip" type="button">检测当前公网 IP</button>
+          <span id="ip-result" role="status"></span>
+        </div>
+
         <label>
           访问令牌
           <input
@@ -26,7 +31,7 @@
             autocomplete="off"
             spellcheck="false"
             required
-            placeholder="填写 Vercel 的 XLEAVE_API_TOKEN"
+            placeholder="填写自己生成并登记的 Token"
           />
           <small>令牌只保存在当前浏览器本地，不会通过 Chrome 同步。</small>
         </label>

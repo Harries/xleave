@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
 
 const form = document.querySelector("#settings-form");
 const status = document.querySelector("#status");
+const ipResult = document.querySelector("#ip-result");
 
 restore();
 
@@ -31,6 +32,24 @@ form.addEventListener("submit", async (event) => {
   window.setTimeout(() => {
     status.textContent = "";
   }, 1800);
+});
+
+document.querySelector("#check-ip").addEventListener("click", async () => {
+  ipResult.textContent = "检测中…";
+
+  try {
+    const backendUrl = form.backendUrl.value.trim().replace(/\/+$/, "");
+    const response = await fetch(`${backendUrl}/ip`, {
+      cache: "no-store"
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ip) throw new Error("无法识别公网 IP");
+
+    ipResult.textContent = data.ip;
+  } catch (error) {
+    ipResult.textContent =
+      error instanceof Error ? error.message : "公网 IP 检测失败";
+  }
 });
 
 async function restore() {

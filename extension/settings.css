@@ -88,6 +88,19 @@ textarea {
   gap: 12px;
 }
 
+.ip-check {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#ip-result {
+  color: #536471;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
 button {
   padding: 10px 16px;
   border-color: #1d9bf0;

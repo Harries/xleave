@@ -5,8 +5,9 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 
-import { requireApiToken } from "./auth.js";
-import { requireAllowedIp } from "./ip-access.js";
+import { requireUser } from "./auth.js";
+import { registerAdminRoutes } from "./admin.js";
+import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -59,14 +60,22 @@ const ReplyOutput = z.object({
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
+app.use(express.urlencoded({ extended: false, limit: "16kb" }));
+
+registerAdminRoutes(app);
 
 app.get("/health", (_request, response) => {
   response.json({ ok: true, model: MODEL });
 });
 
+app.get("/ip", (request, response) => {
+  response.set("Cache-Control", "no-store");
+  response.json({ ip: getClientIp(request) || null });
+});
+
 app.post(
   "/api/replies",
-  requireApiToken,
+  requireUser,
   requireAllowedIp,
   async (request, response) => {
     response.set("Cache-Control", "no-store");

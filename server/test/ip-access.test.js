@@ -39,13 +39,15 @@ test("getClientIp uses Vercel's x-real-ip header", () => {
 
 test("requireAllowedIp accepts only configured addresses", () => {
   const previousVercel = process.env.VERCEL;
-  const previousAllowedIps = process.env.XLEAVE_ALLOWED_IPS;
   process.env.VERCEL = "1";
-  process.env.XLEAVE_ALLOWED_IPS = "203.0.113.10,2001:db8::1";
 
   try {
     let nextCalled = false;
     const allowed = createResponse();
+    allowed.response.locals.user = {
+      id: "harries",
+      allowedIps: ["203.0.113.10", "2001:db8::1"]
+    };
     requireAllowedIp(
       { get: () => "203.0.113.10" },
       allowed.response,
@@ -56,6 +58,10 @@ test("requireAllowedIp accepts only configured addresses", () => {
     assert.equal(nextCalled, true);
 
     const blocked = createResponse();
+    blocked.response.locals.user = {
+      id: "harries",
+      allowedIps: ["203.0.113.10", "2001:db8::1"]
+    };
     requireAllowedIp(
       { get: () => "198.51.100.20" },
       blocked.response,
@@ -68,18 +74,19 @@ test("requireAllowedIp accepts only configured addresses", () => {
     });
   } finally {
     restoreEnv("VERCEL", previousVercel);
-    restoreEnv("XLEAVE_ALLOWED_IPS", previousAllowedIps);
   }
 });
 
 test("requireAllowedIp fails closed when no valid list is configured", () => {
   const previousVercel = process.env.VERCEL;
-  const previousAllowedIps = process.env.XLEAVE_ALLOWED_IPS;
   process.env.VERCEL = "1";
-  delete process.env.XLEAVE_ALLOWED_IPS;
 
   try {
     const result = createResponse();
+    result.response.locals.user = {
+      id: "harries",
+      allowedIps: []
+    };
     requireAllowedIp(
       { get: () => "203.0.113.10" },
       result.response,
@@ -87,12 +94,11 @@ test("requireAllowedIp fails closed when no valid list is configured", () => {
     );
     assert.equal(result.statusCode, 503);
     assert.deepEqual(result.body, {
-      error: "后端尚未配置 XLEAVE_ALLOWED_IPS；当前公网 IP：203.0.113.10",
+      error: "用户尚未配置有效的公网 IP；当前公网 IP：203.0.113.10",
       clientIp: "203.0.113.10"
     });
   } finally {
     restoreEnv("VERCEL", previousVercel);
-    restoreEnv("XLEAVE_ALLOWED_IPS", previousAllowedIps);
   }
 });
 

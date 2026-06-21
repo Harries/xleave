@@ -1,13 +1,16 @@
 import { isIP } from "node:net";
 
 export function requireAllowedIp(request, response, next) {
-  const allowedIps = parseAllowedIps(process.env.XLEAVE_ALLOWED_IPS);
+  const user = response.locals.user;
+  const allowedIps = parseAllowedIps(user?.allowedIps);
   const clientIp = getClientIp(request);
-  console.info(`[X AI Reply] request public IP: ${clientIp || "unknown"}`);
+  console.info(
+    `[X AI Reply] user=${user?.id || "unknown"} public_ip=${clientIp || "unknown"}`
+  );
 
   if (allowedIps.size === 0) {
     return response.status(503).json({
-      error: `后端尚未配置 XLEAVE_ALLOWED_IPS；当前公网 IP：${clientIp || "未识别"}`,
+      error: `用户尚未配置有效的公网 IP；当前公网 IP：${clientIp || "未识别"}`,
       clientIp: clientIp || null
     });
   }
@@ -24,11 +27,14 @@ export function requireAllowedIp(request, response, next) {
 }
 
 export function parseAllowedIps(value) {
-  if (typeof value !== "string") return new Set();
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
 
   return new Set(
-    value
-      .split(",")
+    values
       .map(normalizeIp)
       .filter((ip) => isIP(ip) !== 0)
   );

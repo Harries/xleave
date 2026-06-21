@@ -138,6 +138,27 @@
   font-size: 13px;
 }
 
+.x-ai-reply-context-error {
+  color: rgb(15, 20, 25);
+}
+
+.x-ai-reply-refresh {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: rgb(29, 155, 240);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.x-ai-reply-refresh:hover {
+  background: rgb(26, 140, 216);
+}
+
 @media (max-width: 480px), (max-height: 520px) {
   .x-ai-reply-panel {
     width: calc(100vw - 16px);
@@ -179,5 +200,9 @@
   .x-ai-reply-candidate {
     border-color: rgb(47, 51, 54);
     background: rgb(22, 24, 28);
+  }
+
+  .x-ai-reply-context-error {
+    color: rgb(231, 233, 234);
   }
 }
