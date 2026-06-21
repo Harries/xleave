@@ -111,6 +111,7 @@ Project → Settings → Environment Variables
 | `OPENAI_API_KEY` | 你的 OpenAI API Key | Production、Preview |
 | `OPENAI_MODEL` | `gpt-5.4-mini` | Production、Preview |
 | `XLEAVE_ADMIN_TOKEN` | 管理后台登录密钥，至少 32 字符 | Production |
+| `XLEAVE_PUBLIC_ORIGIN` | `https://xleave.59et.com` | Production |
 | `DATABASE_URL` | Neon Postgres 连接字符串 | Production、Preview |
 | `XLEAVE_USERS` | 可选：旧版环境变量用户列表，仅作迁移兜底 | Production、Preview |
 

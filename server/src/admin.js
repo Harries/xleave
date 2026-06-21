@@ -165,17 +165,53 @@ function requireAdmin(request, response, next) {
 }
 
 function requireSameOrigin(request, response, next) {
-  const source = request.get("origin") || request.get("referer");
-  if (!source) return response.status(403).send("Forbidden");
-
-  try {
-    if (new URL(source).host !== request.get("host")) {
-      return response.status(403).send("Forbidden");
-    }
-  } catch {
+  if (!isSameOriginRequest(request)) {
+    console.warn("[X AI Reply] rejected admin origin", {
+      origin: request.get("origin") || null,
+      referer: request.get("referer") || null,
+      host: request.get("host") || null,
+      forwardedHost: request.get("x-forwarded-host") || null
+    });
     return response.status(403).send("Forbidden");
   }
   return next();
+}
+
+export function isSameOriginRequest(request) {
+  if (request.get("sec-fetch-site") === "cross-site") return false;
+
+  const source = request.get("origin") || request.get("referer");
+  if (!source) return false;
+
+  try {
+    const sourceHost = new URL(source).host.toLowerCase();
+    return getExpectedAdminHosts(request).has(sourceHost);
+  } catch {
+    return false;
+  }
+}
+
+function getExpectedAdminHosts(request) {
+  const hosts = new Set();
+  const forwardedHost = request.get("x-forwarded-host");
+  const directHost = request.get("host");
+  const publicOrigin =
+    process.env.XLEAVE_PUBLIC_ORIGIN || "https://xleave.59et.com";
+
+  if (forwardedHost) {
+    for (const host of forwardedHost.split(",")) {
+      if (host.trim()) hosts.add(host.trim().toLowerCase());
+    }
+  }
+  if (directHost) hosts.add(directHost.trim().toLowerCase());
+
+  try {
+    hosts.add(new URL(publicOrigin).host.toLowerCase());
+  } catch {
+    // Invalid optional configuration is ignored; proxy and Host remain usable.
+  }
+
+  return hosts;
 }
 
 async function renderDashboardResponse(response, state = {}) {
