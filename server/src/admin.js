@@ -178,17 +178,33 @@ function requireSameOrigin(request, response, next) {
 }
 
 export function isSameOriginRequest(request) {
-  if (request.get("sec-fetch-site") === "cross-site") return false;
+  const fetchSite = request.get("sec-fetch-site");
+  if (fetchSite === "cross-site") return false;
 
   const source = request.get("origin") || request.get("referer");
-  if (!source) return false;
+  const expectedHosts = getExpectedAdminHosts(request);
+
+  if (!source || source === "null") {
+    return (
+      fetchSite === "same-origin" &&
+      requestHostIsExpected(request, expectedHosts)
+    );
+  }
 
   try {
     const sourceHost = new URL(source).host.toLowerCase();
-    return getExpectedAdminHosts(request).has(sourceHost);
+    return expectedHosts.has(sourceHost);
   } catch {
     return false;
   }
+}
+
+function requestHostIsExpected(request, expectedHosts) {
+  const forwardedHost = request.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const directHost = request.get("host")?.trim();
+  return [forwardedHost, directHost]
+    .filter(Boolean)
+    .some((host) => expectedHosts.has(host.toLowerCase()));
 }
 
 function getExpectedAdminHosts(request) {

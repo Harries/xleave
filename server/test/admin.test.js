@@ -35,6 +35,32 @@ test("admin origin accepts Vercel x-forwarded-host", () => {
   );
 });
 
+test("admin origin accepts null origin only for same-origin trusted host", () => {
+  assert.equal(
+    isSameOriginRequest(
+      createRequest({
+        origin: "null",
+        host: "xleave.59et.com",
+        forwardedHost: "xleave.59et.com",
+        fetchSite: "same-origin"
+      })
+    ),
+    true
+  );
+
+  assert.equal(
+    isSameOriginRequest(
+      createRequest({
+        origin: "null",
+        host: "xleave.59et.com",
+        forwardedHost: "xleave.59et.com",
+        fetchSite: "cross-site"
+      })
+    ),
+    false
+  );
+});
+
 test("admin origin rejects cross-site and unknown hosts", () => {
   assert.equal(
     isSameOriginRequest(
