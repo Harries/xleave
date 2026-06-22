@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "X AI Reply Assistant",
-  "version": "0.4.2",
-  "description": "在 X 回复框旁生成多种风格的 AI 回复候选，由用户确认后发送。",
+  "name": "XLeave AI Assistant",
+  "version": "0.4.3",
+  "description": "在 X 发帖和回复输入框旁生成多种风格的 AI 文案候选，由用户确认后发送。",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -28,7 +28,7 @@
   ],
   "options_page": "options.html",
   "action": {
-    "default_title": "X AI Reply Assistant",
+    "default_title": "XLeave AI Assistant",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

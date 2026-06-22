@@ -154,14 +154,14 @@ export function renderHomepage() {
       <main>
         <div class="hero">
           <div>
-            <span class="eyebrow">Chrome AI 回复助手</span>
+          <span class="eyebrow">Chrome AI 发帖与回复助手</span>
             <h1>让每一次回复，<span class="gradient-text">更自然一点。</span></h1>
-            <p class="lead">识别当前帖子和对话上下文，生成多条有活人感的回复候选。你来选择、修改并发送，AI 只负责提供灵感。</p>
+            <p class="lead">发帖时自动检索近期 AI 热点，回复时识别当前帖子和对话上下文。你来选择、修改并发送，AI 只负责提供灵感。</p>
             <div class="cta">
               <a class="button primary" href="${GITHUB_URL}" rel="noreferrer">获取插件</a>
               <a class="button secondary" href="#install">查看安装方式</a>
             </div>
-            <p class="micro">不会自动发送 · 不读取图片或视频 · Token 与 IP 双重校验</p>
+            <p class="micro">区分发帖与回复 · 不会自动发送 · 不读取图片或视频</p>
           </div>
           <div class="demo" aria-label="插件回复候选示意">
             <div class="post">
@@ -403,7 +403,7 @@ export function renderPrivacyPage() {
           <p class="updated">生效日期：2026 年 6 月 22 日</p>
         </header>
 
-        <div class="notice"><strong>简要说明：</strong>XLeave 不会自动发送回复，不读取图片或视频内容，也不会在数据库中保存你的帖子正文、草稿或 AI 回复候选。</div>
+        <div class="notice"><strong>简要说明：</strong>XLeave 不会自动发送内容，不读取图片或视频，也不会在数据库中保存你的帖子正文、草稿或 AI 文案候选。生成新帖子时会联网检索近期 AI 热点。</div>
 
         <nav class="toc" aria-label="隐私政策目录">
           <a href="#collect">处理的信息</a><a href="#purpose">使用目的</a><a href="#storage">存储方式</a>
@@ -420,6 +420,7 @@ export function renderPrivacyPage() {
               <li>回复框中已有的文字草稿及当前页面地址；</li>
               <li>你配置的语言、最大字数、是否包含上下文和个人表达偏好。</li>
             </ul>
+            <p>在独立发帖输入框点击“AI 生成帖子”时，后端会通过 OpenAI Web Search 检索近期公开 AI 新闻与信息，并将来源链接返回插件展示。</p>
             <p>为验证访问权限，后端还会处理你的访问 Token 和公网 IP 地址。</p>
           </section>
 

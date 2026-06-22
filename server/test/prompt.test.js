@@ -41,3 +41,27 @@ test("buildReplyInput keeps at most the last three context posts", () => {
     ["2", "3", "4"]
   );
 });
+
+test("buildReplyInput creates web-grounded hotspot posts without source context", () => {
+  const result = buildReplyInput({
+    mode: "post",
+    source: { text: "" },
+    thread: [{ text: "Feed post must not be used" }],
+    draft: "",
+    preferences: {
+      language: "zh-CN",
+      maxCharacters: 120,
+      includeContext: true
+    }
+  });
+  const input = JSON.parse(result.input);
+
+  assert.equal(result.maxCharacters, 120);
+  assert.match(result.instructions, /current AI developments/);
+  assert.match(result.instructions, /search the live web/);
+  assert.match(result.instructions, /exactly five meaningfully different candidates/);
+  assert.equal(input.optionalExistingDraft, "");
+  assert.match(input.task, /current AI hotspots/);
+  assert.equal("sourcePost" in input, false);
+  assert.equal("visibleThreadContext" in input, false);
+});

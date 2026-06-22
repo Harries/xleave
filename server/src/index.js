@@ -16,14 +16,14 @@ const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 
 const ReplyRequest = z.object({
+  mode: z.enum(["reply", "post"]).default("reply"),
   source: z
     .object({
       author: z.string().max(200).default(""),
       handle: z.string().max(200).default(""),
       text: z.string().max(10000),
       url: z.string().max(2000).default("")
-    })
-    .refine((post) => post.text.trim().length > 0, "没有识别到原帖文字"),
+    }),
   thread: z
     .array(
       z.object({
@@ -45,6 +45,14 @@ const ReplyRequest = z.object({
       persona: z.string().max(1000).default("")
     })
     .default({})
+}).superRefine((value, context) => {
+  if (value.mode === "reply" && !value.source.text.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "没有识别到原帖文字",
+      path: ["source", "text"]
+    });
+  }
 });
 
 const ReplyOutput = z.object({
@@ -100,7 +108,7 @@ app.post(
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const prompt = buildReplyInput(parsed.data);
 
-      const result = await client.responses.parse({
+      const requestOptions = {
         model: MODEL,
         reasoning: { effort: "low" },
         instructions: prompt.instructions,
@@ -110,7 +118,21 @@ app.post(
           verbosity: "low"
         },
         store: false
-      });
+      };
+
+      if (parsed.data.mode === "post") {
+        requestOptions.tools = [
+          {
+            type: "web_search",
+            search_context_size: "medium",
+            external_web_access: true
+          }
+        ];
+        requestOptions.tool_choice = "required";
+        requestOptions.include = ["web_search_call.action.sources"];
+      }
+
+      const result = await client.responses.parse(requestOptions);
 
       if (!result.output_parsed) {
         throw new Error("模型没有返回结构化结果");
@@ -127,7 +149,11 @@ app.post(
         console.error("[X AI Reply] failed to record usage", usageError);
       }
 
-      return response.json({ replies });
+      return response.json({
+        replies,
+        sources:
+          parsed.data.mode === "post" ? extractWebSources(result.output) : []
+      });
     } catch (error) {
       console.error(error);
       const status = Number(error?.status);
@@ -161,4 +187,25 @@ function publicError(error) {
     return error.message || "OpenAI 请求参数错误";
   }
   return "AI 服务暂时不可用，请稍后重试";
+}
+
+function extractWebSources(output = []) {
+  const sources = [];
+  const seen = new Set();
+
+  for (const item of output) {
+    if (item?.type !== "web_search_call") continue;
+    for (const source of item.action?.sources || []) {
+      const url = String(source?.url || "").trim();
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      sources.push({
+        title: String(source?.title || source?.url || "热点来源").slice(0, 200),
+        url
+      });
+      if (sources.length >= 6) return sources;
+    }
+  }
+
+  return sources;
 }

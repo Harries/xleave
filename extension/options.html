@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>X AI Reply Assistant 设置</title>
+    <title>XLeave AI 助手设置</title>
     <link rel="stylesheet" href="settings.css" />
   </head>
   <body>
     <main>
-      <h1>X AI Reply Assistant</h1>
-      <p class="intro">配置服务地址、访问令牌和回复风格。OpenAI API Key 只保存在后端，不会进入插件。</p>
+      <h1>XLeave AI 助手</h1>
+      <p class="intro">配置服务地址、访问令牌和表达风格。插件会自动区分发帖与回复。OpenAI API Key 只保存在后端，不会进入插件。</p>
 
       <form id="settings-form">
         <label>
@@ -37,9 +37,9 @@
         </label>
 
         <label>
-          回复语言
+          生成语言
           <select id="language" name="language">
-            <option value="auto">跟随原帖</option>
+          <option value="auto">自动判断</option>
             <option value="zh-CN">简体中文</option>
             <option value="zh-TW">繁体中文</option>
             <option value="en">English</option>
@@ -64,7 +64,7 @@
 
         <label class="checkbox">
           <input id="includeContext" name="includeContext" type="checkbox" />
-          生成时包含最多 3 条可见对话上下文
+          回复时包含最多 3 条可见对话上下文
         </label>
 
         <div class="actions">

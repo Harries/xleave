@@ -45,20 +45,27 @@ function captureReplyTarget(event) {
 }
 
 function attachTool(composer) {
-  if (!(composer instanceof HTMLElement) || composer.dataset.xAiReplyReady) return;
+  if (!(composer instanceof HTMLElement)) return;
+  if (composer.dataset.xAiReplyReady) {
+    syncToolMode(composer);
+    return;
+  }
 
   const toolbar = findToolbar(composer);
   if (!toolbar || toolbar.querySelector(`[${TOOL_ATTR}]`)) return;
 
+  const mode = detectComposerMode(composer);
   composer.dataset.xAiReplyReady = "true";
+  composer.dataset.xAiComposeMode = mode;
 
   const root = document.createElement("span");
   root.setAttribute(TOOL_ATTR, "");
+  root.dataset.composeMode = mode;
   root.className = "x-ai-reply-host";
   root.innerHTML = `
-    <button class="x-ai-reply-button" type="button" aria-label="AI 生成回复">
+    <button class="x-ai-reply-button" type="button" aria-label="${mode === "post" ? "AI 生成帖子" : "AI 生成回复"}">
       <span aria-hidden="true">✦</span>
-      <span>AI 生成回复</span>
+      <span>${mode === "post" ? "AI 生成帖子" : "AI 生成回复"}</span>
     </button>
   `;
 
@@ -81,10 +88,54 @@ function attachTool(composer) {
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    handleGenerate({ composer, button, panel });
+    const activeMode = detectComposerMode(composer);
+    composer.dataset.xAiComposeMode = activeMode;
+    handleGenerate({ composer, button, panel, mode: activeMode });
   });
 
   toolbar.prepend(root);
+}
+
+function syncToolMode(composer) {
+  const toolbar = findToolbar(composer);
+  const root = toolbar?.querySelector(`[${TOOL_ATTR}]`);
+  const button = root?.querySelector(".x-ai-reply-button");
+  if (!(root instanceof HTMLElement) || !(button instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  const mode = detectComposerMode(composer);
+  if (root.dataset.composeMode === mode) return;
+
+  root.dataset.composeMode = mode;
+  composer.dataset.xAiComposeMode = mode;
+  if (!button.disabled) {
+    button.setAttribute(
+      "aria-label",
+      mode === "post" ? "AI 生成帖子" : "AI 生成回复"
+    );
+    button.innerHTML = `<span aria-hidden="true">✦</span><span>${
+      mode === "post" ? "AI 生成帖子" : "AI 生成回复"
+    }</span>`;
+  }
+}
+
+function detectComposerMode(composer) {
+  const dialog = composer.closest('[role="dialog"]');
+  const ownArticle = composer.closest("article");
+  const dialogArticles = [...(dialog?.querySelectorAll("article") || [])];
+  const dialogHasPost = dialogArticles.length > 0;
+  const hasCapturedReply =
+    pendingReplyTarget &&
+    Date.now() - pendingReplyTarget.capturedAt <= REPLY_TARGET_TTL_MS &&
+    (Boolean(ownArticle && ownArticle === pendingReplyTarget.article) ||
+      dialogArticles.some((article) =>
+        isSamePost(extractPost(article), pendingReplyTarget.source)
+      ));
+
+  return hasCapturedReply || dialogHasPost || Boolean(ownArticle)
+    ? "reply"
+    : "post";
 }
 
 function findToolbar(composer) {
@@ -102,30 +153,49 @@ function findToolbar(composer) {
   );
 }
 
-async function handleGenerate({ composer, button, panel }) {
+async function handleGenerate({ composer, button, panel, mode }) {
   if (button.disabled) return;
+
+  panel.setAttribute(
+    "aria-label",
+    mode === "post" ? "AI 帖子候选" : "AI 回复候选"
+  );
 
   if (!isExtensionContextAvailable()) {
     renderContextInvalidated(panel, button);
     return;
   }
 
-  setLoading(button, panel);
+  setLoading(button, panel, mode);
 
   try {
-    const context = extractReplyContext(composer);
+    const context =
+      mode === "post" ? extractPostContext(composer) : extractReplyContext(composer);
     const response = await chrome.runtime.sendMessage({
       type: "GENERATE_REPLIES",
       payload: context
     });
 
     if (!response?.ok) {
-      throw new Error(response?.error || "无法生成回复");
+      throw new Error(
+        response?.error || (mode === "post" ? "无法生成帖子" : "无法生成回复")
+      );
     }
 
-    renderCandidates(panel, composer, response.data.replies);
+    renderCandidates(
+      panel,
+      composer,
+      response.data.replies,
+      mode,
+      response.data.sources || []
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "无法生成回复";
+    const message =
+      error instanceof Error
+        ? error.message
+        : mode === "post"
+          ? "无法生成帖子"
+          : "无法生成回复";
     if (isExtensionContextError(message)) {
       renderContextInvalidated(panel, button);
     } else {
@@ -133,15 +203,34 @@ async function handleGenerate({ composer, button, panel }) {
     }
   } finally {
     button.disabled = false;
-    button.innerHTML = '<span aria-hidden="true">✦</span><span>重新生成</span>';
+    button.innerHTML = `<span aria-hidden="true">✦</span><span>${
+      mode === "post" ? "重新生成帖子" : "重新生成回复"
+    }</span>`;
   }
 }
 
-function setLoading(button, panel) {
+function setLoading(button, panel, mode) {
   button.disabled = true;
   button.innerHTML = '<span class="x-ai-reply-spinner" aria-hidden="true"></span><span>生成中…</span>';
-  panel.innerHTML = '<div class="x-ai-reply-status">正在阅读对话并构思回复…</div>';
+  panel.innerHTML = `<div class="x-ai-reply-status">${
+    mode === "post" ? "正在检索近期 AI 热点并构思帖子…" : "正在阅读对话并构思回复…"
+  }</div>`;
   showPanel(panel, button);
+}
+
+function extractPostContext(composer) {
+  return {
+    mode: "post",
+    source: {
+      author: "",
+      handle: "",
+      text: "",
+      url: location.href
+    },
+    thread: [],
+    draft: composer.innerText.trim(),
+    pageUrl: location.href
+  };
 }
 
 function extractReplyContext(composer) {
@@ -186,6 +275,7 @@ function extractReplyContext(composer) {
     .slice(-3);
 
   return {
+    mode: "reply",
     source: source || {
       author: "",
       handle: "",
@@ -310,14 +400,22 @@ function isVisible(element) {
   return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden";
 }
 
-function renderCandidates(panel, composer, replies) {
+function renderCandidates(panel, composer, replies, mode, sources = []) {
+  const isPost = mode === "post";
   panel.innerHTML = `
     <div class="x-ai-reply-heading">
-      <strong>选择一条回复</strong>
+      <strong>${isPost ? "选择一条帖子" : "选择一条回复"}</strong>
       <button class="x-ai-reply-close" type="button" aria-label="关闭">×</button>
     </div>
     <div class="x-ai-reply-list"></div>
-    <div class="x-ai-reply-hint">点击候选会填入回复框，你仍可继续修改。</div>
+    ${
+      isPost && sources.length
+        ? '<div class="x-ai-reply-sources"><strong>热点来源</strong><div></div></div>'
+        : ""
+    }
+    <div class="x-ai-reply-hint">点击候选会填入${
+      isPost ? "发帖输入框" : "回复框"
+    }，你仍可继续修改。</div>
   `;
   showPanel(panel);
 
@@ -334,7 +432,7 @@ function renderCandidates(panel, composer, replies) {
 
     const tone = document.createElement("span");
     tone.className = "x-ai-reply-tone";
-    tone.textContent = reply.label || reply.tone || "回复";
+    tone.textContent = reply.label || reply.tone || (isPost ? "帖子" : "回复");
 
     const text = document.createElement("span");
     text.className = "x-ai-reply-text";
@@ -354,6 +452,26 @@ function renderCandidates(panel, composer, replies) {
     });
     list.append(item);
   });
+
+  if (isPost && sources.length) {
+    const sourceList = panel.querySelector(".x-ai-reply-sources div");
+    sources.slice(0, 6).forEach((source) => {
+      let url;
+      try {
+        url = new URL(source.url);
+        if (!["http:", "https:"].includes(url.protocol)) return;
+      } catch {
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = url.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = source.title || url.hostname;
+      sourceList.append(link);
+    });
+  }
 }
 
 function renderError(panel, message) {

@@ -1,4 +1,8 @@
 export function buildReplyInput(payload) {
+  if (payload.mode === "post") {
+    return buildPostInput(payload);
+  }
+
   const source = payload.source || {};
   const preferences = payload.preferences || {};
   const maxCharacters = clamp(Number(preferences.maxCharacters) || 180, 30, 500);
@@ -41,6 +45,44 @@ export function buildReplyInput(payload) {
           text: post.text || ""
         })),
         existingDraft: payload.draft || ""
+      },
+      null,
+      2
+    ),
+    maxCharacters
+  };
+}
+
+function buildPostInput(payload) {
+  const preferences = payload.preferences || {};
+  const maxCharacters = clamp(Number(preferences.maxCharacters) || 180, 30, 500);
+
+  return {
+    instructions: [
+      "You write original X (Twitter) posts about current AI developments that sound like a real person sharing a timely observation.",
+      "You must search the live web before writing. Focus on verifiable AI news, product releases, research, policy, funding, or industry developments from the last 72 hours; expand to the last 7 days only when recent results are too thin.",
+      "Prefer primary and authoritative sources such as official company announcements, research papers, regulators, and direct reporting. Cross-check surprising claims.",
+      "The user must manually review and publish the post; never claim you posted anything.",
+      "Write exactly five meaningfully different candidates: friendly, concise, thoughtful, curious, and witty.",
+      "Cover multiple worthwhile AI developments rather than rewriting the same story five times when enough reliable news exists.",
+      "Make each candidate understandable on its own and grounded in a specific recent development.",
+      "Use natural spoken phrasing and varied sentence rhythm. A post may be brief, slightly imperfect, or opinionated.",
+      "Do not sound like an assistant, customer-service agent, press release, motivational speaker, or content-marketing template.",
+      "Do not add fabricated facts, personal experiences, statistics, quotes, relationships, or commitments.",
+      "Avoid canned hooks, engagement bait, excessive praise, hashtags, and unnecessary emojis.",
+      "Do not force a question, joke, emoji, metaphor, or call to action into every post.",
+      "Do not put citations, raw URLs, headings, quotation marks around the post, bullet points, or labels inside the post text. The application displays consulted sources separately.",
+      `Each post must be at most ${maxCharacters} Unicode characters.`,
+      languageInstruction(preferences.language),
+      preferences.persona
+        ? `Match this user-authored voice profile when safe: ${preferences.persona}`
+        : "Use a concise, grounded, conversational voice with a clear human point of view."
+    ].join("\n"),
+    input: JSON.stringify(
+      {
+        task: "Search for current AI hotspots and draft five original post candidates grounded in the findings.",
+        currentDate: new Date().toISOString().slice(0, 10),
+        optionalExistingDraft: payload.draft || ""
       },
       null,
       2
