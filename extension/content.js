@@ -125,6 +125,14 @@ function detectComposerMode(composer) {
   const ownArticle = composer.closest("article");
   const dialogArticles = [...(dialog?.querySelectorAll("article") || [])];
   const dialogHasPost = dialogArticles.length > 0;
+  const isStatusDetailReply =
+    !dialog &&
+    Boolean(composer.closest("main")) &&
+    Boolean(
+      findCurrentStatusArticle(
+        [...document.querySelectorAll("main article")].filter(isVisible)
+      )
+    );
   const hasCapturedReply =
     pendingReplyTarget &&
     Date.now() - pendingReplyTarget.capturedAt <= REPLY_TARGET_TTL_MS &&
@@ -133,7 +141,10 @@ function detectComposerMode(composer) {
         isSamePost(extractPost(article), pendingReplyTarget.source)
       ));
 
-  return hasCapturedReply || dialogHasPost || Boolean(ownArticle)
+  return hasCapturedReply ||
+    dialogHasPost ||
+    Boolean(ownArticle) ||
+    isStatusDetailReply
     ? "reply"
     : "post";
 }
