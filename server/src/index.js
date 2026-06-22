@@ -7,6 +7,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 
 import { requireUser } from "./auth.js";
 import { registerAdminRoutes } from "./admin.js";
+import { registerHomepage } from "./homepage.js";
 import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 import { recordUserUsage } from "./user-store.js";
@@ -63,6 +64,7 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
 app.use(express.urlencoded({ extended: false, limit: "16kb" }));
 
+registerHomepage(app);
 registerAdminRoutes(app);
 
 app.get("/health", (_request, response) => {
