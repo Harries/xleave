@@ -12,7 +12,7 @@ test("homepage introduces the extension and exposes expected destinations", () =
 
   assert.match(html, /让每一次回复/);
   assert.match(html, /不会自动发送/);
-  assert.match(html, /href="\/admin"/);
+  assert.doesNotMatch(html, /href="\/admin"/);
   assert.match(html, /https:\/\/github\.com\/Harries\/xleave/);
   assert.doesNotMatch(html, /twitter-logo|x-logo/i);
 });

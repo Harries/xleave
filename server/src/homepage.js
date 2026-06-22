@@ -61,7 +61,6 @@ export function renderHomepage() {
       .brand-mark svg { width: 27px; height: 27px; }
       .nav-links { display: flex; align-items: center; gap: 24px; color: var(--muted); font-size: 14px; }
       .nav-links a:hover { color: var(--text); }
-      .admin-link { padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; }
       .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 72px; align-items: center; padding: 94px 0 112px; }
       .eyebrow {
         display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid rgba(38,216,255,.22);
@@ -75,7 +74,7 @@ export function renderHomepage() {
       .button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 13px; font-weight: 750; }
       .primary { background: linear-gradient(100deg, var(--cyan), #6a70ff 65%, var(--violet)); color: #080918; box-shadow: 0 15px 38px rgba(82,103,255,.25); }
       .secondary { border: 1px solid var(--line); background: rgba(255,255,255,.045); }
-      .secondary:hover, .admin-link:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.075); }
+      .secondary:hover { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.075); }
       .micro { margin-top: 18px; color: #777e9f; font-size: 13px; }
       .demo {
         position: relative; padding: 18px; border: 1px solid var(--line); border-radius: 26px;
@@ -149,7 +148,6 @@ export function renderHomepage() {
         <div class="nav-links">
           <a href="#features">功能</a>
           <a href="#install">安装</a>
-          <a class="admin-link" href="/admin">管理后台</a>
         </div>
       </nav>
 
@@ -235,7 +233,7 @@ export function renderHomepage() {
 
       <footer>
         <span>© 2026 XLeave · AI 回复灵感助手</span>
-        <div><a href="/support">帮助与支持</a><a href="/privacy">隐私政策</a><a href="${GITHUB_URL}" rel="noreferrer">GitHub</a><a href="/health">服务状态</a><a href="/admin">管理后台</a></div>
+        <div><a href="/support">帮助与支持</a><a href="/privacy">隐私政策</a><a href="${GITHUB_URL}" rel="noreferrer">GitHub</a><a href="/health">服务状态</a></div>
       </footer>
     </div>
   </body>
