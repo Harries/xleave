@@ -156,6 +156,7 @@ function findToolbar(composer) {
 async function handleGenerate({ composer, button, panel, mode }) {
   if (button.disabled) return;
 
+  panel.dataset.composeMode = mode;
   panel.setAttribute(
     "aria-label",
     mode === "post" ? "AI 帖子候选" : "AI 回复候选"
@@ -533,12 +534,26 @@ function positionPanel(panel, button) {
   const viewportWidth = viewport?.width || window.innerWidth;
   const viewportHeight = viewport?.height || window.innerHeight;
   const viewportRight = viewportLeft + viewportWidth;
+  const viewportBottom = viewportTop + viewportHeight;
 
   const buttonRect = button.getBoundingClientRect();
-  const availableAbove = Math.max(80, buttonRect.top - viewportTop - gap - margin);
-  panel.style.maxHeight = `${Math.min(
-    viewportHeight - margin * 2,
-    availableAbove
+  const availableAbove = Math.max(
+    0,
+    buttonRect.top - viewportTop - gap - margin
+  );
+  const availableBelow = Math.max(
+    0,
+    viewportBottom - buttonRect.bottom - gap - margin
+  );
+  const isPost = panel.dataset.composeMode === "post";
+  const placeAbove = isPost
+    ? availableBelow < 220 && availableAbove > availableBelow
+    : availableAbove >= 220 || availableAbove >= availableBelow;
+  const availableHeight = placeAbove ? availableAbove : availableBelow;
+
+  panel.style.maxHeight = `${Math.max(
+    120,
+    Math.min(viewportHeight - margin * 2, availableHeight)
   )}px`;
 
   const panelRect = panel.getBoundingClientRect();
@@ -553,8 +568,15 @@ function positionPanel(panel, button) {
   );
 
   panel.style.left = `${Math.round(left)}px`;
-  panel.style.top = `${Math.round(buttonRect.top - gap)}px`;
-  panel.style.transform = "translateY(-100%)";
+  if (placeAbove) {
+    panel.style.top = `${Math.round(buttonRect.top - gap)}px`;
+    panel.style.transform = "translateY(-100%)";
+    panel.style.transformOrigin = "bottom right";
+  } else {
+    panel.style.top = `${Math.round(buttonRect.bottom + gap)}px`;
+    panel.style.transform = "none";
+    panel.style.transformOrigin = "top right";
+  }
 }
 
 async function fillComposer(composer, text) {

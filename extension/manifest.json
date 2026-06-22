@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "XLeave AI Assistant",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "在 X 发帖和回复输入框旁生成多种风格的 AI 文案候选，由用户确认后发送。",
   "icons": {
     "16": "icons/icon-16.png",
