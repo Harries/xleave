@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   backendUrl: "https://xleave.59et.com",
   language: "auto",
-  maxCharacters: 90,
+  maxCharacters: 180,
   includeContext: true,
   persona: ""
 };
@@ -24,7 +24,7 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
     updates.backendUrl = DEFAULT_SETTINGS.backendUrl;
   }
 
-  if (maxCharacters === undefined || maxCharacters === 180) {
+  if (maxCharacters === undefined || maxCharacters === 90) {
     updates.maxCharacters = DEFAULT_SETTINGS.maxCharacters;
   }
 

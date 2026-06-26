@@ -394,7 +394,7 @@ curl -X POST https://xleave.59et.com/api/replies \
     "pageUrl": "https://x.com/test/status/1",
     "preferences": {
       "language": "zh-CN",
-      "maxCharacters": 90,
+      "maxCharacters": 180,
       "includeContext": true,
       "persona": "表达简洁、自然"
     }
@@ -501,7 +501,7 @@ cd xleave
 | 后端地址 | `https://xleave.59et.com` |
 | 访问令牌 | 自己生成并登记在该用户记录中的 Token |
 | 回复语言 | 跟随原帖，或选择固定语言 |
-| 最大字符数 | `90` |
+| 最大字符数 | `180` |
 | 对话上下文 | 开启 |
 | 个人表达风格 | 按需填写 |
 

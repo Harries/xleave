@@ -40,7 +40,7 @@ const ReplyRequest = z.object({
   preferences: z
     .object({
       language: z.enum(["auto", "zh-CN", "zh-TW", "en", "ja"]).default("auto"),
-      maxCharacters: z.number().int().min(30).max(500).default(90),
+      maxCharacters: z.number().int().min(30).max(500).default(180),
       includeContext: z.boolean().default(true),
       persona: z.string().max(1000).default("")
     })

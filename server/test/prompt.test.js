@@ -20,20 +20,21 @@ test("buildReplyInput clamps length and excludes context when disabled", () => {
   assert.match(result.instructions, /简洁/);
   assert.match(result.instructions, /real person casually joining a conversation/);
   assert.match(result.instructions, /Avoid canned openings/);
-  assert.match(result.instructions, /Default to one casual line/);
+  assert.match(result.instructions, /Vary the length on purpose/);
   assert.match(result.instructions, /not five labeled writing exercises/);
   assert.match(result.instructions, /exactly five meaningfully different candidates/);
   assert.deepEqual(JSON.parse(result.input).visibleThreadContext, []);
 });
 
-test("buildReplyInput defaults replies to shorter human-sized candidates", () => {
+test("buildReplyInput defaults replies to varied human-sized candidates", () => {
   const result = buildReplyInput({
     source: { text: "Hello" },
     preferences: {}
   });
 
-  assert.equal(result.maxCharacters, 90);
+  assert.equal(result.maxCharacters, 180);
   assert.match(result.instructions, /Use the maximum only as a hard cap/);
+  assert.match(result.instructions, /Do not make all five candidates the same length/);
 });
 
 test("buildReplyInput keeps at most the last three context posts", () => {
