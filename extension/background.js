@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   backendUrl: "https://xleave.59et.com",
   language: "auto",
-  maxCharacters: 180,
+  maxCharacters: 90,
   includeContext: true,
   persona: ""
 };
@@ -14,11 +14,22 @@ const LEGACY_BACKEND_URLS = new Set([
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   if (reason !== "install" && reason !== "update") return;
 
-  const { backendUrl } = await chrome.storage.sync.get("backendUrl");
+  const { backendUrl, maxCharacters } = await chrome.storage.sync.get([
+    "backendUrl",
+    "maxCharacters"
+  ]);
+  const updates = {};
+
   if (!backendUrl || LEGACY_BACKEND_URLS.has(backendUrl.replace(/\/+$/, ""))) {
-    await chrome.storage.sync.set({
-      backendUrl: DEFAULT_SETTINGS.backendUrl
-    });
+    updates.backendUrl = DEFAULT_SETTINGS.backendUrl;
+  }
+
+  if (maxCharacters === undefined || maxCharacters === 180) {
+    updates.maxCharacters = DEFAULT_SETTINGS.maxCharacters;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await chrome.storage.sync.set(updates);
   }
 });
 

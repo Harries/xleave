@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   backendUrl: "https://xleave.59et.com",
   language: "auto",
-  maxCharacters: 180,
+  maxCharacters: 90,
   includeContext: true,
   persona: ""
 };
