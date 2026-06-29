@@ -400,10 +400,58 @@ function extractPost(article) {
       labels?.find((item) => item.startsWith("@")) ||
       (profileLink ? `@${profileLink.getAttribute("href").slice(1)}` : ""),
     text,
+    languageHint: detectTextLanguage(text),
     url: statusLink
       ? new URL(statusLink.getAttribute("href"), location.origin).href
       : location.href
   };
+}
+
+function detectTextLanguage(text) {
+  const normalized = String(text || "")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[@#][\p{L}\p{N}_-]+/gu, " ")
+    .trim();
+  if (!normalized) return "";
+
+  const counts = {
+    han: countMatches(normalized, /\p{Script=Han}/gu),
+    kana: countMatches(normalized, /[\p{Script=Hiragana}\p{Script=Katakana}]/gu),
+    hangul: countMatches(normalized, /\p{Script=Hangul}/gu),
+    latin: countMatches(normalized, /\p{Script=Latin}/gu)
+  };
+  const total = counts.han + counts.kana + counts.hangul + counts.latin;
+  if (total < 2) return "";
+
+  if (counts.kana >= 2 && counts.kana + counts.han >= total * 0.35) {
+    return "Japanese";
+  }
+
+  if (counts.hangul >= 2 && counts.hangul >= total * 0.35) {
+    return "Korean";
+  }
+
+  if (counts.han >= 2 && counts.han >= total * 0.35) {
+    return looksTraditionalChinese(normalized)
+      ? "Traditional Chinese"
+      : "Simplified Chinese";
+  }
+
+  if (counts.latin >= 2 && counts.latin >= total * 0.5) {
+    return "the same Latin-script language used by the source post";
+  }
+
+  return "";
+}
+
+function countMatches(text, pattern) {
+  return [...text.matchAll(pattern)].length;
+}
+
+function looksTraditionalChinese(text) {
+  return /[體臺灣廣東裏裡這會說時與為國學來對開關後發實現網頁應該問題資料軟體雲端]/u.test(
+    text
+  );
 }
 
 function isVisible(element) {

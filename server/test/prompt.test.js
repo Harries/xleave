@@ -37,6 +37,26 @@ test("buildReplyInput defaults replies to varied human-sized candidates", () => 
   assert.match(result.instructions, /Do not make all five candidates the same length/);
 });
 
+test("buildReplyInput uses detected source language when language is auto", () => {
+  const result = buildReplyInput({
+    source: {
+      text: "This launch feels more like infrastructure than a chatbot update.",
+      languageHint: "the same Latin-script language used by the source post"
+    },
+    preferences: {
+      language: "auto"
+    }
+  });
+  const input = JSON.parse(result.input);
+
+  assert.equal(
+    input.sourcePost.languageHint,
+    "the same Latin-script language used by the source post"
+  );
+  assert.match(result.instructions, /same primary language as the source post/);
+  assert.match(result.instructions, /Do not translate to Chinese/);
+});
+
 test("buildReplyInput keeps at most the last three context posts", () => {
   const result = buildReplyInput({
     source: { text: "Source" },

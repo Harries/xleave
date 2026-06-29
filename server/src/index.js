@@ -22,6 +22,7 @@ const ReplyRequest = z.object({
       author: z.string().max(200).default(""),
       handle: z.string().max(200).default(""),
       text: z.string().max(10000),
+      languageHint: z.string().max(80).optional(),
       url: z.string().max(2000).default("")
     }),
   thread: z

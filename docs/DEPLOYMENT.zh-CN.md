@@ -387,13 +387,14 @@ curl -X POST https://xleave.59et.com/api/replies \
       "author": "Test User",
       "handle": "@test",
       "text": "What are you building today?",
+      "languageHint": "the same Latin-script language used by the source post",
       "url": "https://x.com/test/status/1"
     },
     "thread": [],
     "draft": "",
     "pageUrl": "https://x.com/test/status/1",
     "preferences": {
-      "language": "zh-CN",
+      "language": "auto",
       "maxCharacters": 180,
       "includeContext": true,
       "persona": "表达简洁、自然"

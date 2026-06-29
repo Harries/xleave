@@ -30,7 +30,7 @@ export function buildReplyInput(payload) {
       "Do not invent facts, personal experiences, relationships, or commitments.",
       "Avoid spam, engagement bait, excessive praise, hashtags, and unnecessary emojis.",
       `Each reply must be at most ${maxCharacters} Unicode characters.`,
-      languageInstruction(preferences.language),
+      languageInstruction(preferences.language, source.languageHint, "reply"),
       preferences.persona
         ? `Match this user-authored voice profile when safe: ${preferences.persona}`
         : "Use a concise, grounded, conversational voice with a clear human point of view."
@@ -42,6 +42,7 @@ export function buildReplyInput(payload) {
           author: source.author || "",
           handle: source.handle || "",
           text: source.text || "",
+          languageHint: source.languageHint || "",
           url: source.url || payload.pageUrl || ""
         },
         visibleThreadContext: thread.slice(-3).map((post) => ({
@@ -78,7 +79,7 @@ function buildPostInput(payload) {
       "Do not force a question, joke, emoji, metaphor, or call to action into every post.",
       "Do not put citations, raw URLs, headings, quotation marks around the post, bullet points, or labels inside the post text. The application displays consulted sources separately.",
       `Each post must be at most ${maxCharacters} Unicode characters.`,
-      languageInstruction(preferences.language),
+      languageInstruction(preferences.language, "", "post"),
       preferences.persona
         ? `Match this user-authored voice profile when safe: ${preferences.persona}`
         : "Use a concise, grounded, conversational voice with a clear human point of view."
@@ -96,9 +97,15 @@ function buildPostInput(payload) {
   };
 }
 
-function languageInstruction(language) {
+function languageInstruction(language, sourceLanguageHint = "", mode = "reply") {
+  const sourceLanguage = String(sourceLanguageHint || "").trim();
   const instructions = {
-    auto: "Reply in the source post's primary language.",
+    auto:
+      mode === "post"
+        ? "Write in Simplified Chinese unless the user's existing draft clearly uses another language; if so, continue in that draft language."
+        : sourceLanguage
+          ? `Reply in the same primary language as the source post (${sourceLanguage}). This overrides the language of the UI, author name, visible context, persona, and these instructions. Do not translate to Chinese unless the source post itself is primarily Chinese.`
+          : "Infer the source post's primary language from sourcePost.text and reply in that same language. Do not default to Chinese just because the UI, persona, context, or these instructions contain Chinese.",
     "zh-CN": "Reply in Simplified Chinese.",
     "zh-TW": "Reply in Traditional Chinese.",
     en: "Reply in English.",
