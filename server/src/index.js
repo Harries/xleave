@@ -10,7 +10,7 @@ import { registerHomepage } from "./homepage.js";
 import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 import { recordUserUsage } from "./user-store.js";
-import { generateCandidates } from "./ai-provider.js";
+import { chooseProvider, generateCandidates } from "./ai-provider.js";
 import { decryptSecret, isSecretConfigured } from "./crypto.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -90,9 +90,20 @@ app.post(
     }
 
     const user = response.locals.user;
-    if (!user?.aiKeyCipher) {
+    const choice = chooseProvider({
+      mode: parsed.data.mode,
+      defaultProvider: user?.defaultProvider,
+      hasOpenai: Boolean(user?.openaiKeyCipher),
+      hasDeepseek: Boolean(user?.deepseekKeyCipher)
+    });
+    if (choice.error === "no-key") {
       return response.status(400).json({
         error: "请先在个人中心设置 AI Token"
+      });
+    }
+    if (choice.error === "post-needs-openai") {
+      return response.status(400).json({
+        error: "发帖模式需要 OpenAI Key（DeepSeek 不支持联网发帖），请在个人中心配置 OpenAI Key"
       });
     }
     if (!isSecretConfigured()) {
@@ -101,9 +112,15 @@ app.post(
       });
     }
 
+    const provider = choice.provider;
+    const keyCipher =
+      provider === "deepseek" ? user.deepseekKeyCipher : user.openaiKeyCipher;
+    const providerModel =
+      provider === "deepseek" ? user.deepseekModel : user.openaiModel;
+
     let apiKey;
     try {
-      apiKey = decryptSecret(user.aiKeyCipher);
+      apiKey = decryptSecret(keyCipher);
     } catch (error) {
       console.error("[X AI Reply] failed to decrypt AI key", error);
       return response.status(500).json({
@@ -130,9 +147,9 @@ app.post(
       const prompt = buildReplyInput(requestData);
 
       const { replies: rawReplies, sources } = await generateCandidates({
-        provider: user.aiProvider || "openai",
+        provider,
         apiKey,
-        model: user.aiModel,
+        model: providerModel,
         prompt,
         mode: parsed.data.mode
       });

@@ -21,8 +21,9 @@ export async function findUserByToken(token) {
     const sql = getSql();
     await ensureSchema();
     const rows = await sql`
-      SELECT id, allowed_ips, enabled, ai_provider, ai_key_cipher, ai_model, persona,
-        pref_language, pref_max_characters, pref_include_context
+      SELECT id, allowed_ips, enabled, default_provider,
+        openai_key_cipher, openai_model, deepseek_key_cipher, deepseek_model,
+        persona, pref_language, pref_max_characters, pref_include_context
       FROM xleave_users
       WHERE token_hash = ${tokenHash}
       LIMIT 1
@@ -34,9 +35,11 @@ export async function findUserByToken(token) {
         allowedIps: user.allowed_ips,
         enabled: true,
         source: "neon",
-        aiProvider: user.ai_provider || "openai",
-        aiKeyCipher: user.ai_key_cipher || null,
-        aiModel: user.ai_model || null,
+        defaultProvider: user.default_provider || "openai",
+        openaiKeyCipher: user.openai_key_cipher || null,
+        openaiModel: user.openai_model || null,
+        deepseekKeyCipher: user.deepseek_key_cipher || null,
+        deepseekModel: user.deepseek_model || null,
         persona: user.persona || "",
         prefLanguage: user.pref_language || "auto",
         prefMaxCharacters: Number(user.pref_max_characters ?? 180),
@@ -250,7 +253,8 @@ export async function getAccountProfile(id) {
   const normalizedId = validateUserId(id);
   const rows = await sql`
     SELECT id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
-      ai_provider, ai_key_cipher, ai_model, persona,
+      default_provider, openai_key_cipher, openai_model,
+      deepseek_key_cipher, deepseek_model, persona,
       pref_language, pref_max_characters, pref_include_context,
       created_at, updated_at
     FROM xleave_users
@@ -261,17 +265,30 @@ export async function getAccountProfile(id) {
   if (!row) throw new Error("账号不存在");
   return {
     ...mapStoredUser(row),
-    aiProvider: row.ai_provider || "openai",
-    aiModel: row.ai_model || "",
+    defaultProvider: row.default_provider || "openai",
     persona: row.persona || "",
-    hasAiKey: Boolean(row.ai_key_cipher),
+    providers: {
+      openai: {
+        hasKey: Boolean(row.openai_key_cipher),
+        model: row.openai_model || ""
+      },
+      deepseek: {
+        hasKey: Boolean(row.deepseek_key_cipher),
+        model: row.deepseek_model || ""
+      }
+    },
     prefLanguage: row.pref_language || "auto",
     prefMaxCharacters: Number(row.pref_max_characters ?? 180),
     prefIncludeContext: row.pref_include_context !== false
   };
 }
 
-export async function updateAiSettings(id, { provider, apiKey, model }) {
+const PROVIDER_COLUMNS = {
+  openai: { key: "openai_key_cipher", model: "openai_model" },
+  deepseek: { key: "deepseek_key_cipher", model: "deepseek_model" }
+};
+
+export async function updateProviderSettings(id, { provider, apiKey, model }) {
   const sql = requireSql();
   await ensureSchema();
   const normalizedId = validateUserId(id);
@@ -280,38 +297,51 @@ export async function updateAiSettings(id, { provider, apiKey, model }) {
   const trimmedKey = String(apiKey || "").trim();
   const cipher = trimmedKey ? encryptSecret(trimmedKey) : null;
 
-  // Keep the existing key when the form leaves the field blank.
+  // Keep the existing key when the form leaves the field blank; update the
+  // model for the chosen provider only. Column names are from a fixed
+  // allowlist (PROVIDER_COLUMNS), never user input.
+  const cols = PROVIDER_COLUMNS[normalizedProvider];
   const rows = trimmedKey
-    ? await sql`
-        UPDATE xleave_users
-        SET ai_provider = ${normalizedProvider},
-            ai_model = ${normalizedModel},
-            ai_key_cipher = ${cipher},
-            updated_at = NOW()
-        WHERE id = ${normalizedId}
-        RETURNING id
-      `
-    : await sql`
-        UPDATE xleave_users
-        SET ai_provider = ${normalizedProvider},
-            ai_model = ${normalizedModel},
-            updated_at = NOW()
-        WHERE id = ${normalizedId}
-        RETURNING id
-      `;
+    ? await sql.query(
+        `UPDATE xleave_users
+         SET ${cols.model} = $1, ${cols.key} = $2, updated_at = NOW()
+         WHERE id = $3 RETURNING id`,
+        [normalizedModel, cipher, normalizedId]
+      )
+    : await sql.query(
+        `UPDATE xleave_users
+         SET ${cols.model} = $1, updated_at = NOW()
+         WHERE id = $2 RETURNING id`,
+        [normalizedModel, normalizedId]
+      );
   if (!rows[0]) throw new Error("账号不存在");
 }
 
-export async function clearAiKey(id) {
+export async function setDefaultProvider(id, provider) {
   const sql = requireSql();
   await ensureSchema();
   const normalizedId = validateUserId(id);
+  const normalizedProvider = validateAiProvider(provider);
   const rows = await sql`
     UPDATE xleave_users
-    SET ai_key_cipher = NULL, updated_at = NOW()
+    SET default_provider = ${normalizedProvider}, updated_at = NOW()
     WHERE id = ${normalizedId}
     RETURNING id
   `;
+  if (!rows[0]) throw new Error("账号不存在");
+}
+
+export async function clearProviderKey(id, provider) {
+  const sql = requireSql();
+  await ensureSchema();
+  const normalizedId = validateUserId(id);
+  const normalizedProvider = validateAiProvider(provider);
+  const cols = PROVIDER_COLUMNS[normalizedProvider];
+  const rows = await sql.query(
+    `UPDATE xleave_users SET ${cols.key} = NULL, updated_at = NOW()
+     WHERE id = $1 RETURNING id`,
+    [normalizedId]
+  );
   if (!rows[0]) throw new Error("账号不存在");
 }
 
@@ -437,6 +467,41 @@ async function ensureSchema() {
     await sql`
       ALTER TABLE xleave_users
       ADD COLUMN IF NOT EXISTS pref_include_context BOOLEAN NOT NULL DEFAULT TRUE
+    `;
+    // Per-provider keys so OpenAI and DeepSeek can both be configured, with a
+    // user-chosen default provider.
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS openai_key_cipher TEXT
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS openai_model VARCHAR(80)
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS deepseek_key_cipher TEXT
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS deepseek_model VARCHAR(80)
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS default_provider VARCHAR(20) NOT NULL DEFAULT 'openai'
+    `;
+    // Backfill the per-provider columns from the legacy single-key columns.
+    await sql`
+      UPDATE xleave_users
+      SET
+        openai_key_cipher = CASE WHEN ai_provider = 'openai' THEN ai_key_cipher ELSE openai_key_cipher END,
+        openai_model = CASE WHEN ai_provider = 'openai' THEN ai_model ELSE openai_model END,
+        deepseek_key_cipher = CASE WHEN ai_provider = 'deepseek' THEN ai_key_cipher ELSE deepseek_key_cipher END,
+        deepseek_model = CASE WHEN ai_provider = 'deepseek' THEN ai_model ELSE deepseek_model END,
+        default_provider = COALESCE(NULLIF(ai_provider, ''), 'openai')
+      WHERE ai_key_cipher IS NOT NULL
+        AND openai_key_cipher IS NULL
+        AND deepseek_key_cipher IS NULL
     `;
   })();
   try {

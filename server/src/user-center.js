@@ -10,14 +10,15 @@ import { getClientIp } from "./ip-access.js";
 import {
   authenticateUser,
   changePassword,
-  clearAiKey,
+  clearProviderKey,
   getAccountProfile,
   isUserStoreConfigured,
   registerUser,
   rotateUserToken,
+  setDefaultProvider,
   setUserIps,
-  updateAiSettings,
-  updatePreferences
+  updatePreferences,
+  updateProviderSettings
 } from "./user-store.js";
 import {
   escapeHtml,
@@ -101,13 +102,15 @@ export function registerUserCenter(app) {
 
   app.post("/account/ai", requireLogin, requireSameOrigin, async (request, response) => {
     try {
-      await updateAiSettings(response.locals.accountId, {
-        provider: request.body?.provider,
+      const provider = request.body?.provider;
+      await updateProviderSettings(response.locals.accountId, {
+        provider,
         apiKey: request.body?.apiKey,
         model: request.body?.model
       });
+      const label = AI_PROVIDERS[provider]?.label || provider;
       return renderAccountResponse(response, response.locals.accountId, "ai", {
-        notice: "AI 设置已保存。"
+        notice: `${label} 设置已保存。`
       });
     } catch (error) {
       return renderAccountResponse(response, response.locals.accountId, "ai", {
@@ -117,14 +120,36 @@ export function registerUserCenter(app) {
   });
 
   app.post(
+    "/account/ai/default",
+    requireLogin,
+    requireSameOrigin,
+    async (request, response) => {
+      try {
+        const provider = request.body?.provider;
+        await setDefaultProvider(response.locals.accountId, provider);
+        const label = AI_PROVIDERS[provider]?.label || provider;
+        return renderAccountResponse(response, response.locals.accountId, "ai", {
+          notice: `默认服务商已设为 ${label}。`
+        });
+      } catch (error) {
+        return renderAccountResponse(response, response.locals.accountId, "ai", {
+          error: publicMessage(error)
+        });
+      }
+    }
+  );
+
+  app.post(
     "/account/ai/clear",
     requireLogin,
     requireSameOrigin,
-    async (_request, response) => {
+    async (request, response) => {
       try {
-        await clearAiKey(response.locals.accountId);
+        const provider = request.body?.provider;
+        await clearProviderKey(response.locals.accountId, provider);
+        const label = AI_PROVIDERS[provider]?.label || provider;
         return renderAccountResponse(response, response.locals.accountId, "ai", {
-          notice: "已清除已保存的 AI Key。"
+          notice: `已清除 ${label} 的 API Key。`
         });
       } catch (error) {
         return renderAccountResponse(response, response.locals.accountId, "ai", {
@@ -430,38 +455,66 @@ function sectionToken(profile) {
 }
 
 function sectionAi(profile) {
-  const providerOptions = Object.entries(AI_PROVIDERS)
+  const providers = profile.providers || {
+    openai: { hasKey: false, model: "" },
+    deepseek: { hasKey: false, model: "" }
+  };
+  const defaultProvider = profile.defaultProvider || "openai";
+  const defaultOptions = Object.entries(AI_PROVIDERS)
     .map(
       ([value, config]) =>
-        `<option value="${value}" ${profile.aiProvider === value ? "selected" : ""}>${escapeHtml(config.label)}</option>`
+        `<option value="${value}" ${defaultProvider === value ? "selected" : ""}>${escapeHtml(config.label)}${
+          providers[value]?.hasKey ? "" : "（未配置 Key）"
+        }</option>`
     )
     .join("");
 
   return `
       <section>
-        <h2>AI Token（自带 Key）</h2>
+        <h2>默认服务商</h2>
         <p class="field-hint">
-          当前状态：${profile.hasAiKey ? "<strong>已设置</strong>" : "<strong>未设置</strong>（未设置将无法生成）"}。
+          两家都配置 Key 时，生成默认走这里选择的服务商。
+          发帖模式始终使用 OpenAI（DeepSeek 不支持联网检索）；
+          若默认服务商未配置 Key，会自动回退到另一家已配置的服务商。
+        </p>
+        <form method="post" action="/account/ai/default" class="grid-form">
+          <label>默认服务商
+            <select name="provider">${defaultOptions}</select>
+          </label>
+          <button type="submit">保存默认服务商</button>
+        </form>
+      </section>
+
+      ${providerKeyCard("openai", "OpenAI", providers.openai, defaultProvider)}
+      ${providerKeyCard("deepseek", "DeepSeek", providers.deepseek, defaultProvider)}`;
+}
+
+function providerKeyCard(provider, label, state = {}, defaultProvider = "openai") {
+  const hasKey = Boolean(state.hasKey);
+  const model = state.model || "";
+  const placeholderModel = provider === "deepseek" ? "deepseek-chat" : "gpt-5.4-mini";
+  const isDefault = defaultProvider === provider;
+  return `
+      <section>
+        <h2>${escapeHtml(label)} Key ${isDefault ? '<span class="badge">默认</span>' : ""}</h2>
+        <p class="field-hint">
+          当前状态：${hasKey ? "<strong>已设置</strong>" : "<strong>未设置</strong>"}。
           Key 经 AES-256-GCM 加密后保存，不会明文回显。
         </p>
         <form method="post" action="/account/ai" class="grid-form">
-          <label>服务商
-            <select name="provider">${providerOptions}</select>
-          </label>
+          <input type="hidden" name="provider" value="${provider}">
           <label>模型（可选，留空使用默认）
-            <input name="model" value="${escapeHtml(profile.aiModel)}"
-              placeholder="如 gpt-5.4-mini 或 deepseek-chat">
+            <input name="model" value="${escapeHtml(model)}" placeholder="如 ${placeholderModel}">
           </label>
           <label>API Key
             <input name="apiKey" type="password" autocomplete="off" spellcheck="false"
-              placeholder="${profile.hasAiKey ? "留空则保留当前 Key" : "粘贴你的 OpenAI / DeepSeek API Key"}">
+              placeholder="${hasKey ? "留空则保留当前 Key" : `粘贴你的 ${label} API Key`}">
           </label>
-          <button type="submit">保存 AI 设置</button>
+          <button type="submit">保存 ${escapeHtml(label)} 设置</button>
         </form>
-        <p class="field-hint">注意：DeepSeek 暂不支持联网发帖模式，发帖请使用 OpenAI。</p>
         ${
-          profile.hasAiKey
-            ? `<form method="post" action="/account/ai/clear" onsubmit="return confirm('确认清除已保存的 AI Key？')"><button class="danger">清除 AI Key</button></form>`
+          hasKey
+            ? `<form method="post" action="/account/ai/clear" onsubmit="return confirm('确认清除 ${escapeHtml(label)} 的 API Key？')"><input type="hidden" name="provider" value="${provider}"><button class="danger">清除 ${escapeHtml(label)} Key</button></form>`
             : ""
         }
       </section>`;

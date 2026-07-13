@@ -31,6 +31,26 @@ export const ReplyOutput = z.object({
 
 const TONE_ORDER = ["friendly", "concise", "thoughtful", "curious", "witty"];
 
+/**
+ * Decide which provider a request should use given the user's configured keys.
+ * - post mode always needs OpenAI (DeepSeek can't web-search)
+ * - otherwise honor the default provider, falling back to whichever key exists
+ * Returns { provider } on success, or { error } with a stable reason code.
+ */
+export function chooseProvider({ mode, defaultProvider, hasOpenai, hasDeepseek }) {
+  if (!hasOpenai && !hasDeepseek) return { error: "no-key" };
+
+  if (mode === "post") {
+    if (!hasOpenai) return { error: "post-needs-openai" };
+    return { provider: "openai" };
+  }
+
+  let provider = defaultProvider === "deepseek" ? "deepseek" : "openai";
+  if (provider === "openai" && !hasOpenai) provider = "deepseek";
+  if (provider === "deepseek" && !hasDeepseek) provider = "openai";
+  return { provider };
+}
+
 export function resolveModel(provider, model) {
   const config = AI_PROVIDERS[provider];
   if (!config) throw new Error("暂不支持的 AI 服务商");

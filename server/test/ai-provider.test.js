@@ -3,10 +3,51 @@ import assert from "node:assert/strict";
 
 import {
   buildDeepseekMessages,
+  chooseProvider,
   generateCandidates,
   parseDeepseekReplies,
   resolveModel
 } from "../src/ai-provider.js";
+
+test("chooseProvider honors the default when both keys exist", () => {
+  assert.deepEqual(
+    chooseProvider({ mode: "reply", defaultProvider: "deepseek", hasOpenai: true, hasDeepseek: true }),
+    { provider: "deepseek" }
+  );
+  assert.deepEqual(
+    chooseProvider({ mode: "reply", defaultProvider: "openai", hasOpenai: true, hasDeepseek: true }),
+    { provider: "openai" }
+  );
+});
+
+test("chooseProvider falls back to the other configured provider in reply mode", () => {
+  assert.deepEqual(
+    chooseProvider({ mode: "reply", defaultProvider: "openai", hasOpenai: false, hasDeepseek: true }),
+    { provider: "deepseek" }
+  );
+  assert.deepEqual(
+    chooseProvider({ mode: "reply", defaultProvider: "deepseek", hasOpenai: true, hasDeepseek: false }),
+    { provider: "openai" }
+  );
+});
+
+test("chooseProvider forces OpenAI for post mode, erroring without an OpenAI key", () => {
+  assert.deepEqual(
+    chooseProvider({ mode: "post", defaultProvider: "deepseek", hasOpenai: true, hasDeepseek: true }),
+    { provider: "openai" }
+  );
+  assert.deepEqual(
+    chooseProvider({ mode: "post", defaultProvider: "deepseek", hasOpenai: false, hasDeepseek: true }),
+    { error: "post-needs-openai" }
+  );
+});
+
+test("chooseProvider reports no-key when nothing is configured", () => {
+  assert.deepEqual(
+    chooseProvider({ mode: "reply", defaultProvider: "openai", hasOpenai: false, hasDeepseek: false }),
+    { error: "no-key" }
+  );
+});
 
 const VALID_REPLIES = {
   replies: [
