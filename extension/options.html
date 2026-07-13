@@ -9,19 +9,9 @@
   <body>
     <main>
       <h1>XLeave AI 助手</h1>
-      <p class="intro">配置服务地址、访问令牌和表达风格。插件会自动区分发帖与回复。请先在<a id="account-link" href="#" target="_blank" rel="noreferrer">用户中心</a>注册账号、设置自己的 AI Token（支持 OpenAI / DeepSeek）并获取访问令牌。</p>
+      <p class="intro">插件只需填写访问令牌。语言、字数、上下文、AI Token 和提示词等全部在<a id="account-link" href="#" target="_blank" rel="noreferrer">用户中心</a>统一设置。</p>
 
       <form id="settings-form">
-        <label>
-          后端地址
-          <input id="backendUrl" name="backendUrl" type="url" required />
-        </label>
-
-        <div class="ip-check">
-          <button id="check-ip" type="button">检测当前公网 IP</button>
-          <span id="ip-result" role="status"></span>
-        </div>
-
         <label>
           访问令牌
           <input
@@ -36,43 +26,16 @@
           <small>令牌只保存在当前浏览器本地，不会通过 Chrome 同步。可在用户中心自助轮换。</small>
         </label>
 
-        <label>
-          生成语言
-          <select id="language" name="language">
-          <option value="auto">自动判断</option>
-            <option value="zh-CN">简体中文</option>
-            <option value="zh-TW">繁体中文</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-          </select>
-        </label>
-
-        <label>
-          最大字符数
-          <input id="maxCharacters" name="maxCharacters" type="number" min="30" max="500" />
-        </label>
-
-        <label>
-          个人表达风格（可选）
-          <textarea
-            id="persona"
-            name="persona"
-            rows="4"
-            placeholder="例如：我是独立开发者，表达简洁、真诚，不使用夸张营销词。"
-          ></textarea>
-          <small>若已在用户中心设置提示词，将优先使用后者。</small>
-        </label>
-
-        <label class="checkbox">
-          <input id="includeContext" name="includeContext" type="checkbox" />
-          回复时包含最多 3 条可见对话上下文
-        </label>
-
         <div class="actions">
-          <button type="submit">保存设置</button>
+          <button type="submit">保存令牌</button>
           <span id="status" role="status"></span>
         </div>
       </form>
+
+      <p class="intro">
+        还没有账号或需要修改生成偏好？
+        <a id="account-link-2" href="#" target="_blank" rel="noreferrer">打开用户中心 →</a>
+      </p>
     </main>
     <script src="options.js"></script>
   </body>

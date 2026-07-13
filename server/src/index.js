@@ -111,13 +111,18 @@ app.post(
       });
     }
 
-    // Server-stored persona (managed in the personal center) overrides the
-    // value the extension sends, while other preferences stay client-side.
+    // Generation preferences are managed server-side in the personal center;
+    // for stored (neon) users they override whatever the extension sends.
     const requestData = { ...parsed.data };
-    if (user.source === "neon" && user.persona) {
+    if (user.source === "neon") {
       requestData.preferences = {
         ...requestData.preferences,
-        persona: user.persona
+        persona: user.persona || "",
+        language: user.prefLanguage || requestData.preferences.language,
+        maxCharacters:
+          user.prefMaxCharacters ?? requestData.preferences.maxCharacters,
+        includeContext:
+          user.prefIncludeContext ?? requestData.preferences.includeContext
       };
     }
 

@@ -33,7 +33,10 @@ export async function requireUser(request, response, next) {
     aiProvider: user.aiProvider || "openai",
     aiKeyCipher: user.aiKeyCipher || null,
     aiModel: user.aiModel || null,
-    persona: user.persona || ""
+    persona: user.persona || "",
+    prefLanguage: user.prefLanguage ?? null,
+    prefMaxCharacters: user.prefMaxCharacters ?? null,
+    prefIncludeContext: user.prefIncludeContext ?? null
   };
   return next();
 }

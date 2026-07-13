@@ -1,10 +1,4 @@
-const DEFAULT_SETTINGS = {
-  backendUrl: "https://xleave.59et.com",
-  language: "auto",
-  maxCharacters: 180,
-  includeContext: true,
-  persona: ""
-};
+const DEFAULT_BACKEND_URL = "https://xleave.59et.com";
 
 const LEGACY_BACKEND_URLS = new Set([
   "http://localhost:8787",
@@ -14,22 +8,10 @@ const LEGACY_BACKEND_URLS = new Set([
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   if (reason !== "install" && reason !== "update") return;
 
-  const { backendUrl, maxCharacters } = await chrome.storage.sync.get([
-    "backendUrl",
-    "maxCharacters"
-  ]);
-  const updates = {};
+  const { backendUrl } = await chrome.storage.sync.get(["backendUrl"]);
 
   if (!backendUrl || LEGACY_BACKEND_URLS.has(backendUrl.replace(/\/+$/, ""))) {
-    updates.backendUrl = DEFAULT_SETTINGS.backendUrl;
-  }
-
-  if (maxCharacters === undefined || maxCharacters === 90) {
-    updates.maxCharacters = DEFAULT_SETTINGS.maxCharacters;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await chrome.storage.sync.set(updates);
+    await chrome.storage.sync.set({ backendUrl: DEFAULT_BACKEND_URL });
   }
 });
 
@@ -53,31 +35,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function generateReplies(payload) {
   const [settings, localSettings] = await Promise.all([
-    chrome.storage.sync.get(DEFAULT_SETTINGS),
+    chrome.storage.sync.get({ backendUrl: DEFAULT_BACKEND_URL }),
     chrome.storage.local.get({ apiToken: "" })
   ]);
-  const backendUrl = settings.backendUrl.replace(/\/+$/, "");
+  const backendUrl = (settings.backendUrl || DEFAULT_BACKEND_URL).replace(/\/+$/, "");
   const apiToken = localSettings.apiToken.trim();
 
   if (!apiToken) {
     throw new Error("请先在插件设置中填写访问令牌");
   }
 
+  // Generation preferences (language, length, context, persona) are managed
+  // server-side in the user center; the extension only sends the content.
   const response = await fetch(`${backendUrl}/api/replies`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${apiToken}`
     },
-    body: JSON.stringify({
-      ...payload,
-      preferences: {
-        language: settings.language,
-        maxCharacters: settings.maxCharacters,
-        includeContext: settings.includeContext,
-        persona: settings.persona
-      }
-    })
+    body: JSON.stringify(payload)
   });
 
   const data = await response.json().catch(() => ({}));

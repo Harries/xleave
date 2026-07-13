@@ -428,7 +428,7 @@ export function renderPrivacyPage() {
               <li>当前回复目标的作者名称、账号、帖子文字和帖子链接；</li>
               <li>可选的可见对话上下文，最多三条；</li>
               <li>回复框中已有的文字草稿及当前页面地址；</li>
-              <li>你配置的语言、最大字数、是否包含上下文和个人表达偏好。</li>
+              <li>你在用户中心配置的语言、最大字数、是否包含上下文和个人表达偏好。</li>
             </ul>
             <p>在独立发帖输入框点击“AI 生成帖子”时，后端会通过你所选服务商检索近期公开 AI 新闻与信息（目前仅 OpenAI 支持联网检索），并将来源链接返回插件展示。</p>
             <p>注册用户中心账号时，你会提供用户名与密码；在个人中心你可以设置自己的 AI 服务商与 API Key、提示词和可选的公网 IP 白名单。</p>
@@ -444,7 +444,7 @@ export function renderPrivacyPage() {
           <section class="section" id="storage">
             <h2>3. 信息如何存储</h2>
             <div class="data-grid">
-              <div class="data-card"><b>浏览器本地</b><span>访问 Token 保存在 Chrome 本地存储中；后端地址、语言、字数和表达偏好保存在 Chrome 同步存储中，并可能随你的 Chrome 账号同步。</span></div>
+              <div class="data-card"><b>浏览器本地</b><span>访问 Token 保存在 Chrome 本地存储中；后端地址保存在 Chrome 同步存储中。语言、字数、上下文和提示词等生成偏好改为保存在用户中心（Neon）。</span></div>
               <div class="data-card"><b>Neon 数据库</b><span>保存用户 ID、密码的 scrypt 哈希、Token 哈希和尾号提示、经 AES-256-GCM 加密的 AI Key、AI 服务商与模型、提示词、IP 白名单、启用状态、累计使用次数、最后使用时间及管理时间戳。</span></div>
               <div class="data-card"><b>回复内容</b><span>帖子正文、文字草稿和生成的回复候选不会写入 XLeave 的 Neon 用户数据库。</span></div>
               <div class="data-card"><b>运行日志</b><span>服务日志可能包含公网 IP、用户 ID、请求错误和安全拦截信息。Vercel 等托管服务可能按其政策保存运行日志。</span></div>
@@ -480,7 +480,7 @@ export function renderPrivacyPage() {
             <h2>6. 你的选择与数据管理</h2>
             <ul>
               <li>你可以关闭“包含上下文”，减少发送给后端的对话内容；</li>
-              <li>你可以清空个人表达偏好和 Token，或直接卸载插件；</li>
+              <li>你可以在插件中清空 Token，或在用户中心清空提示词与生成偏好，也可直接卸载插件；</li>
               <li>你可以在个人中心自助轮换 Token、修改或清除 AI Key、修改提示词和 IP 白名单、修改密码；如需删除账号记录请联系管理员；</li>
               <li>如需报告隐私或安全问题，请通过 <a href="${GITHUB_URL}/issues/new" rel="noreferrer">GitHub Issues</a> 联系我们，并避免提交任何密钥。</li>
             </ul>

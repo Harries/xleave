@@ -71,7 +71,10 @@ test("requireUser authenticates a configured user", async () => {
       aiProvider: "openai",
       aiKeyCipher: null,
       aiModel: null,
-      persona: ""
+      persona: "",
+      prefLanguage: null,
+      prefMaxCharacters: null,
+      prefIncludeContext: null
     });
   });
 });

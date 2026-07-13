@@ -21,7 +21,8 @@ export async function findUserByToken(token) {
     const sql = getSql();
     await ensureSchema();
     const rows = await sql`
-      SELECT id, allowed_ips, enabled, ai_provider, ai_key_cipher, ai_model, persona
+      SELECT id, allowed_ips, enabled, ai_provider, ai_key_cipher, ai_model, persona,
+        pref_language, pref_max_characters, pref_include_context
       FROM xleave_users
       WHERE token_hash = ${tokenHash}
       LIMIT 1
@@ -36,7 +37,10 @@ export async function findUserByToken(token) {
         aiProvider: user.ai_provider || "openai",
         aiKeyCipher: user.ai_key_cipher || null,
         aiModel: user.ai_model || null,
-        persona: user.persona || ""
+        persona: user.persona || "",
+        prefLanguage: user.pref_language || "auto",
+        prefMaxCharacters: Number(user.pref_max_characters ?? 180),
+        prefIncludeContext: user.pref_include_context !== false
       };
     }
   }
@@ -246,7 +250,9 @@ export async function getAccountProfile(id) {
   const normalizedId = validateUserId(id);
   const rows = await sql`
     SELECT id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
-      ai_provider, ai_key_cipher, ai_model, persona, created_at, updated_at
+      ai_provider, ai_key_cipher, ai_model, persona,
+      pref_language, pref_max_characters, pref_include_context,
+      created_at, updated_at
     FROM xleave_users
     WHERE id = ${normalizedId}
     LIMIT 1
@@ -258,7 +264,10 @@ export async function getAccountProfile(id) {
     aiProvider: row.ai_provider || "openai",
     aiModel: row.ai_model || "",
     persona: row.persona || "",
-    hasAiKey: Boolean(row.ai_key_cipher)
+    hasAiKey: Boolean(row.ai_key_cipher),
+    prefLanguage: row.pref_language || "auto",
+    prefMaxCharacters: Number(row.pref_max_characters ?? 180),
+    prefIncludeContext: row.pref_include_context !== false
   };
 }
 
@@ -306,14 +315,24 @@ export async function clearAiKey(id) {
   if (!rows[0]) throw new Error("账号不存在");
 }
 
-export async function updatePersona(id, persona) {
+export async function updatePreferences(
+  id,
+  { persona, language, maxCharacters, includeContext }
+) {
   const sql = requireSql();
   await ensureSchema();
   const normalizedId = validateUserId(id);
   const value = String(persona || "").slice(0, 1000);
+  const normalizedLanguage = validateLanguage(language);
+  const normalizedMax = validateMaxCharacters(maxCharacters);
+  const normalizedContext = Boolean(includeContext);
   const rows = await sql`
     UPDATE xleave_users
-    SET persona = ${value}, updated_at = NOW()
+    SET persona = ${value},
+        pref_language = ${normalizedLanguage},
+        pref_max_characters = ${normalizedMax},
+        pref_include_context = ${normalizedContext},
+        updated_at = NOW()
     WHERE id = ${normalizedId}
     RETURNING id
   `;
@@ -406,6 +425,18 @@ async function ensureSchema() {
     await sql`
       ALTER TABLE xleave_users
       ADD COLUMN IF NOT EXISTS persona TEXT NOT NULL DEFAULT ''
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS pref_language VARCHAR(10) NOT NULL DEFAULT 'auto'
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS pref_max_characters INT NOT NULL DEFAULT 180
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS pref_include_context BOOLEAN NOT NULL DEFAULT TRUE
     `;
   })();
   try {
@@ -506,6 +537,21 @@ function validateAiProvider(value) {
     throw new Error("暂不支持的 AI 服务商");
   }
   return provider;
+}
+
+function validateLanguage(value) {
+  const language = String(value || "auto").trim();
+  const allowed = new Set(["auto", "zh-CN", "zh-TW", "en", "ja"]);
+  if (!allowed.has(language)) throw new Error("不支持的生成语言");
+  return language;
+}
+
+function validateMaxCharacters(value) {
+  const max = Math.trunc(Number(value));
+  if (!Number.isFinite(max) || max < 30 || max > 500) {
+    throw new Error("最大字符数需在 30–500 之间");
+  }
+  return max;
 }
 
 function validateAiModel(value) {

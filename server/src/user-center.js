@@ -17,7 +17,7 @@ import {
   rotateUserToken,
   setUserIps,
   updateAiSettings,
-  updatePersona
+  updatePreferences
 } from "./user-store.js";
 import {
   escapeHtml,
@@ -140,9 +140,14 @@ export function registerUserCenter(app) {
 
   app.post("/account/prompt", requireLogin, requireSameOrigin, async (request, response) => {
     try {
-      await updatePersona(response.locals.accountId, request.body?.persona);
+      await updatePreferences(response.locals.accountId, {
+        persona: request.body?.persona,
+        language: request.body?.language,
+        maxCharacters: request.body?.maxCharacters,
+        includeContext: request.body?.includeContext === "on"
+      });
       return renderAccountResponse(response, response.locals.accountId, "prompt", {
-        notice: "提示词已保存。"
+        notice: "生成偏好已保存。"
       });
     } catch (error) {
       return renderAccountResponse(response, response.locals.accountId, "prompt", {
@@ -348,7 +353,7 @@ function renderLogin(error = "") {
 const ACCOUNT_NAV = [
   { key: "token", href: "/account", icon: "🔑", label: "访问 Token" },
   { key: "ai", href: "/account/ai", icon: "🤖", label: "AI Token" },
-  { key: "prompt", href: "/account/prompt", icon: "✍️", label: "提示词" },
+  { key: "prompt", href: "/account/prompt", icon: "✍️", label: "生成偏好" },
   { key: "ips", href: "/account/ips", icon: "🌐", label: "IP 白名单" },
   { key: "password", href: "/account/password", icon: "🔒", label: "修改密码" }
 ];
@@ -463,17 +468,42 @@ function sectionAi(profile) {
 }
 
 function sectionPrompt(profile) {
+  const languages = [
+    ["auto", "自动判断"],
+    ["zh-CN", "简体中文"],
+    ["zh-TW", "繁体中文"],
+    ["en", "English"],
+    ["ja", "日本語"]
+  ];
+  const languageOptions = languages
+    .map(
+      ([value, label]) =>
+        `<option value="${value}" ${profile.prefLanguage === value ? "selected" : ""}>${escapeHtml(label)}</option>`
+    )
+    .join("");
+
   return `
       <section>
-        <h2>提示词 / 表达风格</h2>
+        <h2>生成偏好</h2>
+        <p class="field-hint">这些偏好在后台统一管理，插件端不再需要配置。</p>
         <form method="post" action="/account/prompt" class="grid-form">
+          <label>生成语言
+            <select name="language">${languageOptions}</select>
+          </label>
+          <label>最大字符数
+            <input name="maxCharacters" type="number" min="30" max="500"
+              value="${escapeHtml(String(profile.prefMaxCharacters || 180))}">
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="includeContext" ${profile.prefIncludeContext ? "checked" : ""}>
+            回复时包含最多 3 条可见对话上下文
+          </label>
           <label>个人表达风格（可选）
             <textarea name="persona" rows="4"
               placeholder="例如：我是独立开发者，表达简洁、真诚，不使用夸张营销词。">${escapeHtml(profile.persona)}</textarea>
           </label>
-          <button type="submit">保存提示词</button>
+          <button type="submit">保存生成偏好</button>
         </form>
-        <p class="field-hint">此处设置的提示词会优先于插件里的表达风格。</p>
       </section>`;
 }
 
