@@ -439,27 +439,41 @@ function renderAccount(profile, activeKey = "token", { notice = "", error = "", 
 }
 
 function sectionToken(profile) {
-  const tokenBlock = profile.token
-    ? `<div class="secret">
-         <strong>访问 Token：</strong>
-         <code>${escapeHtml(profile.token)}</code>
-         <button type="button" data-copy="${escapeHtml(profile.token)}">复制</button>
-       </div>
-       <p class="field-hint">该 Token 已加密保存，可随时在此复制。</p>`
-    : `<p class="field-hint">当前 Token 尾号 ···${escapeHtml(profile.tokenHint || "?")}。此账号的 Token 是在支持复制功能之前创建的，无法再显示完整值，请轮换一次以获得可复制的 Token。</p>`;
-
-  return `
-      <section>
-        <h2>访问 Token</h2>
+  const stats = `
         <div class="usage-stats">
           <div><strong>···${escapeHtml(profile.tokenHint || "?")}</strong><span>当前 Token 尾号</span></div>
           <div><strong>${formatCount(profile.usageCount)}</strong><span>累计 AI 使用次数</span></div>
+        </div>`;
+
+  if (profile.token) {
+    return `
+      <section>
+        <h2>访问 Token</h2>
+        ${stats}
+        <div class="secret">
+          <strong>访问 Token：</strong>
+          <code>${escapeHtml(profile.token)}</code>
+          <button type="button" data-copy="${escapeHtml(profile.token)}">复制</button>
         </div>
-        ${tokenBlock}
-        <p class="field-hint">把访问 Token 填入 Chrome 插件设置即可使用。轮换后旧 Token 立即失效。</p>
+        <p class="field-hint">该 Token 已加密保存，可随时在此复制。把它填入 Chrome 插件设置即可使用。</p>
         <form method="post" action="/account/token/rotate"
           onsubmit="return confirm('轮换后旧 Token 立即失效，确认继续？')">
-          <button type="submit">轮换 Token</button>
+          <button type="submit" class="secondary">轮换 Token</button>
+        </form>
+      </section>`;
+  }
+
+  // Token created before the copy feature: only its hash was stored, so the
+  // plaintext can't be recovered — rotating once mints a copyable token.
+  return `
+      <section>
+        <h2>访问 Token</h2>
+        ${stats}
+        <div class="alert error">此账号的 Token 是在"可复制"功能上线前创建的，只存了哈希，无法再显示完整值。点击下方按钮轮换一次即可获得可复制的新 Token。</div>
+        <p class="field-hint">轮换后旧 Token 立即失效，请记得在 Chrome 插件里换成新 Token。</p>
+        <form method="post" action="/account/token/rotate"
+          onsubmit="return confirm('轮换后旧 Token 立即失效，确认继续？')">
+          <button type="submit">生成可复制的新 Token</button>
         </form>
       </section>`;
 }
