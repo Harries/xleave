@@ -19,7 +19,13 @@ import {
   updateAiSettings,
   updatePersona
 } from "./user-store.js";
-import { escapeHtml, page, parseCookies, serializeCookie } from "./web-utils.js";
+import {
+  escapeHtml,
+  page,
+  parseCookies,
+  renderAppShell,
+  serializeCookie
+} from "./web-utils.js";
 
 const SESSION_COOKIE = "xleave_user";
 
@@ -329,15 +335,26 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
     )
     .join("");
 
-  return page(
-    "个人中心",
-    `
+  const nav = [
+    { href: "#token", icon: "🔑", label: "访问 Token" },
+    { href: "#ai", icon: "🤖", label: "AI Token" },
+    { href: "#prompt", icon: "✍️", label: "提示词" },
+    { href: "#ips", icon: "🌐", label: "IP 白名单" },
+    { href: "#password", icon: "🔒", label: "修改密码" }
+  ];
+  const footer = `
+    <form method="post" action="/logout">
+      <button type="submit" class="app-nav-item">
+        <span class="app-nav-icon">⎋</span><span class="label">退出登录</span>
+      </button>
+    </form>`;
+
+  const main = `
       <header>
         <div>
           <h1>个人中心</h1>
           <p>账号：<strong>${escapeHtml(profile.id)}</strong></p>
         </div>
-        <form method="post" action="/logout"><button class="secondary">退出登录</button></form>
       </header>
       ${notice ? `<div class="alert success">${escapeHtml(notice)}</div>` : ""}
       ${error ? `<div class="alert error">${escapeHtml(error)}</div>` : ""}
@@ -347,7 +364,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           : ""
       }
 
-      <section>
+      <section id="token">
         <h2>访问 Token</h2>
         <div class="usage-stats">
           <div><strong>···${escapeHtml(profile.tokenHint || "?")}</strong><span>当前 Token 尾号</span></div>
@@ -360,7 +377,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
         </form>
       </section>
 
-      <section>
+      <section id="ai">
         <h2>AI Token（自带 Key）</h2>
         <p class="field-hint">
           当前状态：${profile.hasAiKey ? "<strong>已设置</strong>" : "<strong>未设置</strong>（未设置将无法生成）"}。
@@ -388,7 +405,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
         }
       </section>
 
-      <section>
+      <section id="prompt">
         <h2>提示词 / 表达风格</h2>
         <form method="post" action="/account/prompt" class="grid-form">
           <label>个人表达风格（可选）
@@ -400,7 +417,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
         <p class="field-hint">此处设置的提示词会优先于插件里的表达风格。</p>
       </section>
 
-      <section>
+      <section id="ips">
         <h2>公网 IP 白名单（可选）</h2>
         <form method="post" action="/account/ips" class="grid-form">
           <label>允许访问的公网 IP
@@ -412,7 +429,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
         <p class="field-hint">当前检测到的公网 IP：<code>${escapeHtml(clientIp || "未识别")}</code>。留空则任意 IP 均可用你的 Token 访问。</p>
       </section>
 
-      <section>
+      <section id="password">
         <h2>修改密码</h2>
         <form method="post" action="/account/password" class="grid-form">
           <label>当前密码
@@ -433,7 +450,11 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           event.target.textContent = "已复制";
         });
       </script>
-    `
+  `;
+
+  return page(
+    "个人中心",
+    renderAppShell({ subtitle: "用户中心", nav, footer, main })
   );
 }
 

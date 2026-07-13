@@ -13,6 +13,7 @@ import {
   escapeHtml,
   page,
   parseCookies,
+  renderAppShell,
   safeEqual,
   serializeCookie
 } from "./web-utils.js";
@@ -276,15 +277,24 @@ function renderLogin(error = "") {
 
 function renderDashboard({ users, notice = "", error = "", secret = "" }) {
   const configured = isUserStoreConfigured();
-  return page(
-    "用户管理",
-    `
+  const nav = [
+    { href: "#create", icon: "➕", label: "新建用户" },
+    { href: "#users", icon: "👥", label: "现有用户" },
+    { href: "/", icon: "🏠", label: "返回首页", external: true }
+  ];
+  const footer = `
+    <form method="post" action="/admin/logout">
+      <button type="submit" class="app-nav-item">
+        <span class="app-nav-icon">⎋</span><span class="label">退出</span>
+      </button>
+    </form>`;
+
+  const main = `
       <header>
         <div>
           <h1>XLeave 用户管理</h1>
           <p>创建用户、分配 Token 和公网 IP 白名单。</p>
         </div>
-        <form method="post" action="/admin/logout"><button class="secondary">退出</button></form>
       </header>
       ${notice ? `<div class="alert success">${escapeHtml(notice)}</div>` : ""}
       ${error ? `<div class="alert error">${escapeHtml(error)}</div>` : ""}
@@ -298,7 +308,7 @@ function renderDashboard({ users, notice = "", error = "", secret = "" }) {
           ? ""
           : `<div class="alert error">尚未配置 Neon。请在 Vercel 设置 <code>DATABASE_URL</code>。</div>`
       }
-      <section>
+      <section id="create">
         <h2>新建用户</h2>
         <form method="post" action="/admin/users" class="grid-form">
           <label>用户 ID
@@ -313,7 +323,7 @@ function renderDashboard({ users, notice = "", error = "", secret = "" }) {
           <button type="submit" ${configured ? "" : "disabled"}>创建用户</button>
         </form>
       </section>
-      <section>
+      <section id="users">
         <h2>现有用户 <span class="count">${users.length}</span></h2>
         <div class="users">
           ${
@@ -331,7 +341,11 @@ function renderDashboard({ users, notice = "", error = "", secret = "" }) {
           event.target.textContent = "已复制";
         });
       </script>
-    `
+  `;
+
+  return page(
+    "用户管理",
+    renderAppShell({ subtitle: "管理后台", nav, footer, main })
   );
 }
 
