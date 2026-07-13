@@ -445,7 +445,7 @@ export function renderPrivacyPage() {
             <h2>3. 信息如何存储</h2>
             <div class="data-grid">
               <div class="data-card"><b>浏览器本地</b><span>访问 Token 保存在 Chrome 本地存储中；后端地址保存在 Chrome 同步存储中。语言、字数、上下文和提示词等生成偏好改为保存在用户中心（Neon）。</span></div>
-              <div class="data-card"><b>Neon 数据库</b><span>保存用户 ID、密码的 scrypt 哈希、Token 哈希和尾号提示、经 AES-256-GCM 加密的 AI Key、AI 服务商与模型、提示词、IP 白名单、启用状态、累计使用次数、最后使用时间及管理时间戳。</span></div>
+              <div class="data-card"><b>Neon 数据库</b><span>保存用户 ID、密码的 scrypt 哈希、Token 哈希和尾号提示、经 AES-256-GCM 加密的访问 Token 与 AI Key、AI 服务商与模型、提示词、IP 白名单、启用状态、累计使用次数、最后使用时间及管理时间戳。</span></div>
               <div class="data-card"><b>回复内容</b><span>帖子正文、文字草稿和生成的回复候选不会写入 XLeave 的 Neon 用户数据库。</span></div>
               <div class="data-card"><b>运行日志</b><span>服务日志可能包含公网 IP、用户 ID、请求错误和安全拦截信息。Vercel 等托管服务可能按其政策保存运行日志。</span></div>
             </div>
@@ -468,7 +468,7 @@ export function renderPrivacyPage() {
             <h2>5. 安全措施</h2>
             <ul>
               <li>接口使用用户 Token 验证，并支持可选的公网 IP 白名单；</li>
-              <li>Token 在 Neon 中仅保存 SHA-256 哈希，明文只在创建或轮换时显示；</li>
+              <li>Token 校验只依赖 SHA-256 哈希；为支持在个人中心随时复制，另存一份 AES-256-GCM 加密的密文；</li>
               <li>账号密码以 scrypt 加盐哈希保存，AI Key 以 AES-256-GCM 加密保存，明文均不落库；</li>
               <li>OpenAI 请求明确关闭模型响应存储；</li>
               <li>插件不会把 AI API Key 或管理员密钥放入前端代码。</li>

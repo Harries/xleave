@@ -439,6 +439,15 @@ function renderAccount(profile, activeKey = "token", { notice = "", error = "", 
 }
 
 function sectionToken(profile) {
+  const tokenBlock = profile.token
+    ? `<div class="secret">
+         <strong>访问 Token：</strong>
+         <code>${escapeHtml(profile.token)}</code>
+         <button type="button" data-copy="${escapeHtml(profile.token)}">复制</button>
+       </div>
+       <p class="field-hint">该 Token 已加密保存，可随时在此复制。</p>`
+    : `<p class="field-hint">当前 Token 尾号 ···${escapeHtml(profile.tokenHint || "?")}。此账号的 Token 是在支持复制功能之前创建的，无法再显示完整值，请轮换一次以获得可复制的 Token。</p>`;
+
   return `
       <section>
         <h2>访问 Token</h2>
@@ -446,6 +455,7 @@ function sectionToken(profile) {
           <div><strong>···${escapeHtml(profile.tokenHint || "?")}</strong><span>当前 Token 尾号</span></div>
           <div><strong>${formatCount(profile.usageCount)}</strong><span>累计 AI 使用次数</span></div>
         </div>
+        ${tokenBlock}
         <p class="field-hint">把访问 Token 填入 Chrome 插件设置即可使用。轮换后旧 Token 立即失效。</p>
         <form method="post" action="/account/token/rotate"
           onsubmit="return confirm('轮换后旧 Token 立即失效，确认继续？')">

@@ -3,7 +3,13 @@ import { isIP } from "node:net";
 
 import { neon } from "@neondatabase/serverless";
 
-import { encryptSecret, hashPassword, verifyPassword } from "./crypto.js";
+import {
+  decryptSecret,
+  encryptSecret,
+  hashPassword,
+  isSecretConfigured,
+  verifyPassword
+} from "./crypto.js";
 
 const AI_PROVIDERS = new Set(["openai", "deepseek"]);
 
@@ -70,6 +76,23 @@ export async function listUsers() {
   return rows.map(mapStoredUser);
 }
 
+// Encrypt the token for later display when a secret key is configured;
+// otherwise fall back to hash-only (token stays one-time).
+function tokenCipherFor(plainToken) {
+  return isSecretConfigured() ? encryptSecret(plainToken) : null;
+}
+
+// Return the plaintext token for display, or null if it can't be recovered
+// (no cipher stored yet, or secret key missing/rotated).
+function decryptTokenCipher(cipher) {
+  if (!cipher || !isSecretConfigured()) return null;
+  try {
+    return decryptSecret(cipher);
+  } catch {
+    return null;
+  }
+}
+
 export async function createUser({ id, allowedIps, token }) {
   const sql = requireSql();
   await ensureSchema();
@@ -84,6 +107,7 @@ export async function createUser({ id, allowedIps, token }) {
         id,
         token_hash,
         token_hint,
+        token_cipher,
         allowed_ips,
         enabled
       )
@@ -91,6 +115,7 @@ export async function createUser({ id, allowedIps, token }) {
         ${normalizedId},
         ${tokenHash},
         ${plainToken.slice(-6)},
+        ${tokenCipherFor(plainToken)},
         ${JSON.stringify(normalizedIps)}::jsonb,
         TRUE
       )
@@ -150,6 +175,7 @@ export async function rotateUserToken(id, token) {
       SET
         token_hash = ${tokenHash},
         token_hint = ${plainToken.slice(-6)},
+        token_cipher = ${tokenCipherFor(plainToken)},
         updated_at = NOW()
       WHERE id = ${normalizedId}
       RETURNING
@@ -207,6 +233,7 @@ export async function registerUser({ username, password }) {
         id,
         token_hash,
         token_hint,
+        token_cipher,
         password_hash,
         allowed_ips,
         enabled
@@ -215,6 +242,7 @@ export async function registerUser({ username, password }) {
         ${normalizedId},
         ${tokenHash},
         ${plainToken.slice(-6)},
+        ${tokenCipherFor(plainToken)},
         ${passwordHash},
         '[]'::jsonb,
         TRUE
@@ -252,7 +280,7 @@ export async function getAccountProfile(id) {
   await ensureSchema();
   const normalizedId = validateUserId(id);
   const rows = await sql`
-    SELECT id, token_hint, allowed_ips, enabled, usage_count, last_used_at,
+    SELECT id, token_hint, token_cipher, allowed_ips, enabled, usage_count, last_used_at,
       default_provider, openai_key_cipher, openai_model,
       deepseek_key_cipher, deepseek_model, persona,
       pref_language, pref_max_characters, pref_include_context,
@@ -265,6 +293,7 @@ export async function getAccountProfile(id) {
   if (!row) throw new Error("账号不存在");
   return {
     ...mapStoredUser(row),
+    token: decryptTokenCipher(row.token_cipher),
     defaultProvider: row.default_provider || "openai",
     persona: row.persona || "",
     providers: {
@@ -489,6 +518,12 @@ async function ensureSchema() {
     await sql`
       ALTER TABLE xleave_users
       ADD COLUMN IF NOT EXISTS default_provider VARCHAR(20) NOT NULL DEFAULT 'openai'
+    `;
+    // Encrypted copy of the access token so the personal center can show it
+    // again later (the hash stays the source of truth for authentication).
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS token_cipher TEXT
     `;
     // Backfill the per-provider columns from the legacy single-key columns.
     await sql`
