@@ -91,10 +91,12 @@ export function registerUserCenter(app) {
     return response.redirect(303, "/login");
   });
 
-  app.get("/account", requireLogin, async (request, response) => {
-    return renderAccountResponse(response, response.locals.accountId, {
-      clientIp: getClientIp(request)
-    });
+  app.get("/account", requireLogin, async (_request, response) => {
+    return renderAccountResponse(response, response.locals.accountId, "token");
+  });
+
+  app.get("/account/ai", requireLogin, async (_request, response) => {
+    return renderAccountResponse(response, response.locals.accountId, "ai");
   });
 
   app.post("/account/ai", requireLogin, requireSameOrigin, async (request, response) => {
@@ -104,11 +106,11 @@ export function registerUserCenter(app) {
         apiKey: request.body?.apiKey,
         model: request.body?.model
       });
-      return renderAccountResponse(response, response.locals.accountId, {
+      return renderAccountResponse(response, response.locals.accountId, "ai", {
         notice: "AI 设置已保存。"
       });
     } catch (error) {
-      return renderAccountResponse(response, response.locals.accountId, {
+      return renderAccountResponse(response, response.locals.accountId, "ai", {
         error: publicMessage(error)
       });
     }
@@ -121,25 +123,29 @@ export function registerUserCenter(app) {
     async (_request, response) => {
       try {
         await clearAiKey(response.locals.accountId);
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "ai", {
           notice: "已清除已保存的 AI Key。"
         });
       } catch (error) {
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "ai", {
           error: publicMessage(error)
         });
       }
     }
   );
 
+  app.get("/account/prompt", requireLogin, async (_request, response) => {
+    return renderAccountResponse(response, response.locals.accountId, "prompt");
+  });
+
   app.post("/account/prompt", requireLogin, requireSameOrigin, async (request, response) => {
     try {
       await updatePersona(response.locals.accountId, request.body?.persona);
-      return renderAccountResponse(response, response.locals.accountId, {
+      return renderAccountResponse(response, response.locals.accountId, "prompt", {
         notice: "提示词已保存。"
       });
     } catch (error) {
-      return renderAccountResponse(response, response.locals.accountId, {
+      return renderAccountResponse(response, response.locals.accountId, "prompt", {
         error: publicMessage(error)
       });
     }
@@ -152,29 +158,41 @@ export function registerUserCenter(app) {
     async (_request, response) => {
       try {
         const result = await rotateUserToken(response.locals.accountId);
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "token", {
           notice: "访问 Token 已轮换，旧 Token 立即失效。",
           secret: result.token
         });
       } catch (error) {
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "token", {
           error: publicMessage(error)
         });
       }
     }
   );
 
+  app.get("/account/ips", requireLogin, async (request, response) => {
+    return renderAccountResponse(response, response.locals.accountId, "ips", {
+      clientIp: getClientIp(request)
+    });
+  });
+
   app.post("/account/ips", requireLogin, requireSameOrigin, async (request, response) => {
     try {
       await setUserIps(response.locals.accountId, request.body?.allowedIps);
-      return renderAccountResponse(response, response.locals.accountId, {
-        notice: "IP 白名单已更新。"
+      return renderAccountResponse(response, response.locals.accountId, "ips", {
+        notice: "IP 白名单已更新。",
+        clientIp: getClientIp(request)
       });
     } catch (error) {
-      return renderAccountResponse(response, response.locals.accountId, {
-        error: publicMessage(error)
+      return renderAccountResponse(response, response.locals.accountId, "ips", {
+        error: publicMessage(error),
+        clientIp: getClientIp(request)
       });
     }
+  });
+
+  app.get("/account/password", requireLogin, async (_request, response) => {
+    return renderAccountResponse(response, response.locals.accountId, "password");
   });
 
   app.post(
@@ -188,11 +206,11 @@ export function registerUserCenter(app) {
           request.body?.currentPassword,
           request.body?.newPassword
         );
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "password", {
           notice: "密码已修改。"
         });
       } catch (error) {
-        return renderAccountResponse(response, response.locals.accountId, {
+        return renderAccountResponse(response, response.locals.accountId, "password", {
           error: publicMessage(error)
         });
       }
@@ -261,13 +279,13 @@ function clearSession(response) {
 // Rendering
 // ---------------------------------------------------------------------------
 
-async function renderAccountResponse(response, accountId, state = {}) {
+async function renderAccountResponse(response, accountId, activeKey, state = {}) {
   response.set("Cache-Control", "no-store");
   try {
     const profile = await getAccountProfile(accountId);
     return response
       .status(state.error ? 400 : 200)
-      .send(renderAccount(profile, state));
+      .send(renderAccount(profile, activeKey, state));
   } catch (error) {
     return response.status(500).send(renderLogin(publicMessage(error)));
   }
@@ -327,21 +345,30 @@ function renderLogin(error = "") {
   );
 }
 
-function renderAccount(profile, { notice = "", error = "", secret = "", clientIp = "" } = {}) {
-  const providerOptions = Object.entries(AI_PROVIDERS)
-    .map(
-      ([value, config]) =>
-        `<option value="${value}" ${profile.aiProvider === value ? "selected" : ""}>${escapeHtml(config.label)}</option>`
-    )
-    .join("");
+const ACCOUNT_NAV = [
+  { key: "token", href: "/account", icon: "🔑", label: "访问 Token" },
+  { key: "ai", href: "/account/ai", icon: "🤖", label: "AI Token" },
+  { key: "prompt", href: "/account/prompt", icon: "✍️", label: "提示词" },
+  { key: "ips", href: "/account/ips", icon: "🌐", label: "IP 白名单" },
+  { key: "password", href: "/account/password", icon: "🔒", label: "修改密码" }
+];
 
-  const nav = [
-    { href: "#token", icon: "🔑", label: "访问 Token" },
-    { href: "#ai", icon: "🤖", label: "AI Token" },
-    { href: "#prompt", icon: "✍️", label: "提示词" },
-    { href: "#ips", icon: "🌐", label: "IP 白名单" },
-    { href: "#password", icon: "🔒", label: "修改密码" }
-  ];
+const ACCOUNT_SECTIONS = {
+  token: sectionToken,
+  ai: sectionAi,
+  prompt: sectionPrompt,
+  ips: sectionIps,
+  password: sectionPassword
+};
+
+function renderAccount(profile, activeKey = "token", { notice = "", error = "", secret = "", clientIp = "" } = {}) {
+  const active = ACCOUNT_NAV.find((item) => item.key === activeKey) || ACCOUNT_NAV[0];
+  const nav = ACCOUNT_NAV.map((item) => ({
+    href: item.href,
+    icon: item.icon,
+    label: item.label,
+    active: item.key === active.key
+  }));
   const footer = `
     <form method="post" action="/logout">
       <button type="submit" class="app-nav-item">
@@ -352,7 +379,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
   const main = `
       <header>
         <div>
-          <h1>个人中心</h1>
+          <h1>${escapeHtml(active.label)}</h1>
           <p>账号：<strong>${escapeHtml(profile.id)}</strong></p>
         </div>
       </header>
@@ -363,8 +390,27 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           ? `<div class="secret"><strong>访问 Token 仅显示这一次：</strong><code>${escapeHtml(secret)}</code><button type="button" data-copy="${escapeHtml(secret)}">复制</button></div>`
           : ""
       }
+      ${(ACCOUNT_SECTIONS[active.key] || sectionToken)(profile, clientIp)}
 
-      <section id="token">
+      <script>
+        document.addEventListener("click", async (event) => {
+          const value = event.target?.dataset?.copy;
+          if (!value) return;
+          await navigator.clipboard.writeText(value);
+          event.target.textContent = "已复制";
+        });
+      </script>
+  `;
+
+  return page(
+    `${active.label} · 个人中心`,
+    renderAppShell({ subtitle: "用户中心", nav, footer, main })
+  );
+}
+
+function sectionToken(profile) {
+  return `
+      <section>
         <h2>访问 Token</h2>
         <div class="usage-stats">
           <div><strong>···${escapeHtml(profile.tokenHint || "?")}</strong><span>当前 Token 尾号</span></div>
@@ -375,9 +421,19 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           onsubmit="return confirm('轮换后旧 Token 立即失效，确认继续？')">
           <button type="submit">轮换 Token</button>
         </form>
-      </section>
+      </section>`;
+}
 
-      <section id="ai">
+function sectionAi(profile) {
+  const providerOptions = Object.entries(AI_PROVIDERS)
+    .map(
+      ([value, config]) =>
+        `<option value="${value}" ${profile.aiProvider === value ? "selected" : ""}>${escapeHtml(config.label)}</option>`
+    )
+    .join("");
+
+  return `
+      <section>
         <h2>AI Token（自带 Key）</h2>
         <p class="field-hint">
           当前状态：${profile.hasAiKey ? "<strong>已设置</strong>" : "<strong>未设置</strong>（未设置将无法生成）"}。
@@ -403,9 +459,12 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
             ? `<form method="post" action="/account/ai/clear" onsubmit="return confirm('确认清除已保存的 AI Key？')"><button class="danger">清除 AI Key</button></form>`
             : ""
         }
-      </section>
+      </section>`;
+}
 
-      <section id="prompt">
+function sectionPrompt(profile) {
+  return `
+      <section>
         <h2>提示词 / 表达风格</h2>
         <form method="post" action="/account/prompt" class="grid-form">
           <label>个人表达风格（可选）
@@ -415,9 +474,12 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           <button type="submit">保存提示词</button>
         </form>
         <p class="field-hint">此处设置的提示词会优先于插件里的表达风格。</p>
-      </section>
+      </section>`;
+}
 
-      <section id="ips">
+function sectionIps(profile, clientIp = "") {
+  return `
+      <section>
         <h2>公网 IP 白名单（可选）</h2>
         <form method="post" action="/account/ips" class="grid-form">
           <label>允许访问的公网 IP
@@ -427,9 +489,12 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           <button type="submit">保存 IP</button>
         </form>
         <p class="field-hint">当前检测到的公网 IP：<code>${escapeHtml(clientIp || "未识别")}</code>。留空则任意 IP 均可用你的 Token 访问。</p>
-      </section>
+      </section>`;
+}
 
-      <section id="password">
+function sectionPassword() {
+  return `
+      <section>
         <h2>修改密码</h2>
         <form method="post" action="/account/password" class="grid-form">
           <label>当前密码
@@ -440,22 +505,7 @@ function renderAccount(profile, { notice = "", error = "", secret = "", clientIp
           </label>
           <button type="submit">修改密码</button>
         </form>
-      </section>
-
-      <script>
-        document.addEventListener("click", async (event) => {
-          const value = event.target?.dataset?.copy;
-          if (!value) return;
-          await navigator.clipboard.writeText(value);
-          event.target.textContent = "已复制";
-        });
-      </script>
-  `;
-
-  return page(
-    "个人中心",
-    renderAppShell({ subtitle: "用户中心", nav, footer, main })
-  );
+      </section>`;
 }
 
 function formatCount(value) {
