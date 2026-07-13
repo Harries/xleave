@@ -37,12 +37,14 @@ cp .env.example .env
 编辑 `server/.env`：
 
 ```dotenv
-OPENAI_API_KEY=你的_OpenAI_API_Key
 OPENAI_MODEL=gpt-5.4-mini
+XLEAVE_SECRET_KEY=用_openssl_rand_hex_32_生成
 XLEAVE_ADMIN_TOKEN=管理员登录密钥
 DATABASE_URL=Neon连接字符串
 PORT=8787
 ```
+
+`XLEAVE_SECRET_KEY` 用于加密用户自带的 AI Key 并签名登录会话，是用户中心的必需项。用户自带 AI Key（BYO），后端不再统一配置 `OPENAI_API_KEY` 代付；`OPENAI_MODEL` 仅作 OpenAI 用户的默认模型。
 
 启动：
 
@@ -66,7 +68,7 @@ curl http://localhost:8787/health
 6. 点击任意帖子的回复按钮，再点击「AI 生成回复」
 
 点击插件图标可以进入设置页面，修改回复语言、字数和个人表达风格。
-首次使用还需要填写自己的访问令牌。
+首次使用需要先在用户中心（后端地址 `/register`）注册账号、在个人中心设置自己的 AI Key（支持 OpenAI 与 DeepSeek）并获取访问令牌，再把令牌填入插件。
 
 ## 当前行为
 
@@ -88,15 +90,23 @@ https://xleave.59et.com
 
 不要把 `OPENAI_API_KEY` 写进插件代码。
 
-`/api/replies` 已启用多用户、Bearer Token 和公网 IP 白名单双重认证。正式用户配置保存在 Neon Postgres，并通过管理员后台维护：
+`/api/replies` 使用 Bearer Token 认证，并支持每个用户可选的公网 IP 白名单。用户通过自助**用户中心**管理自己的账号：
+
+```text
+https://xleave.59et.com/register   注册
+https://xleave.59et.com/login      登录
+https://xleave.59et.com/account    个人中心
+```
+
+用户可自助注册、登录，在个人中心：查看/轮换访问 Token、设置自带的 AI Key（OpenAI 或 DeepSeek，AES-256-GCM 加密保存）、修改提示词、管理可选的 IP 白名单、修改密码。用户自带 Key，未设置 Key 无法生成。DeepSeek 暂不支持联网发帖模式（`mode=post`），发帖请使用 OpenAI。
+
+管理员后台仍保留，可总览与维护所有用户（含新注册用户）：
 
 ```text
 https://xleave.59et.com/admin
 ```
 
-每个用户在后端拥有独立的 `id`、Token 和 `allowedIps`。管理员可以创建、停用、删除用户，修改 IP 和轮换 Token。Token 在 Neon 中只保存哈希，明文仅显示一次。插件只需填写 Token；后端通过唯一 Token 自动识别用户，并校验该用户的真实来源公网 IP。
-
-后台需要配置 `XLEAVE_ADMIN_TOKEN` 和 Neon 的 `DATABASE_URL`。`XLEAVE_USERS` 继续作为旧版迁移兜底。
+后端需要配置 `XLEAVE_SECRET_KEY`、`XLEAVE_ADMIN_TOKEN` 和 Neon 的 `DATABASE_URL`。Token 与密码在 Neon 中只保存哈希，AI Key 加密保存，明文均不落库。`XLEAVE_USERS` 继续作为旧版迁移兜底。
 
 ## 已知限制
 

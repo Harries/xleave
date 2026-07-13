@@ -108,12 +108,14 @@ Project → Settings → Environment Variables
 
 | Name | Value | 环境 |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | 你的 OpenAI API Key | Production、Preview |
-| `OPENAI_MODEL` | `gpt-5.4-mini` | Production、Preview |
+| `XLEAVE_SECRET_KEY` | 用户中心必需：加密 AI Key 与签名会话，`openssl rand -hex 32` | Production、Preview |
+| `OPENAI_MODEL` | `gpt-5.4-mini`（OpenAI 用户默认模型） | Production、Preview |
 | `XLEAVE_ADMIN_TOKEN` | 管理后台登录密钥，至少 32 字符 | Production |
 | `XLEAVE_PUBLIC_ORIGIN` | `https://xleave.59et.com` | Production |
 | `DATABASE_URL` | Neon Postgres 连接字符串 | Production、Preview |
 | `XLEAVE_USERS` | 可选：旧版环境变量用户列表，仅作迁移兜底 | Production、Preview |
+
+用户自带 AI Key（BYO），后端不再需要统一的 `OPENAI_API_KEY`；每个用户在用户中心设置自己的 OpenAI 或 DeepSeek Key。
 
 ### 3.4 配置 Neon Postgres
 
@@ -164,7 +166,9 @@ Token 明文只在创建或轮换成功后显示一次，Neon 中仅保存 SHA-2
 
 仅在 OpenAI 成功生成回复候选后计数一次；认证失败、IP 不允许、参数错误和 AI 生成失败均不计数。旧版 `XLEAVE_USERS` 环境变量用户没有持久化统计，需迁移到 Neon 后才会累计。
 
-用户只需在插件中填写 Token。后端根据唯一 Token 自动找到用户，并校验该用户的 IP 白名单。
+用户只需在插件中填写 Token。后端根据唯一 Token 自动找到用户，并校验该用户可选的 IP 白名单。
+
+除管理员后台外，用户也可以自助使用**用户中心**：访问 `/register` 注册、`/login` 登录、`/account` 进入个人中心，自助轮换 Token、设置自带 AI Key（OpenAI / DeepSeek）、修改提示词、管理可选 IP 白名单和密码。未设置 AI Key 无法生成；DeepSeek 暂不支持联网发帖模式。
 
 ### 3.6 命令行创建用户记录
 
@@ -412,9 +416,9 @@ curl -X POST https://xleave.59et.com/api/replies \
 | --- | --- |
 | `后端尚未配置用户存储` | Neon `DATABASE_URL` 和兼容的 `XLEAVE_USERS` 均未配置 |
 | `访问令牌无效` | Token 不存在、错误或请求头缺失 |
-| `用户尚未配置有效的公网 IP；当前公网 IP：<IP>` | 当前用户没有有效 IP；提示中的 IP 可加入该用户配置 |
-| `当前公网 IP 不允许访问：<IP>` | 返回的请求出口 IP 不在白名单中 |
-| `后端尚未配置 OPENAI_API_KEY` | Vercel 没有配置环境变量，或配置后没有重新部署 |
+| `请先在个人中心设置 AI Token` | 该用户还没有保存自己的 AI Key，需在 `/account` 设置 |
+| `当前公网 IP 不允许访问：<IP>` | 用户设置了 IP 白名单但出口 IP 不匹配（留空则不限制） |
+| `后端尚未配置 XLEAVE_SECRET_KEY，无法解密 AI 密钥` | Vercel 未配置 `XLEAVE_SECRET_KEY`，或配置后没有重新部署 |
 | `OpenAI API Key 无效` | API Key 错误或已失效 |
 | HTTP 429 | OpenAI 额度不足或触发速率限制 |
 | HTTP 500/502 | 查看 Vercel Function 日志确认具体错误 |
@@ -567,8 +571,8 @@ cp .env.example .env
 编辑 `server/.env`：
 
 ```dotenv
-OPENAI_API_KEY=你的_OpenAI_API_Key
 OPENAI_MODEL=gpt-5.4-mini
+XLEAVE_SECRET_KEY=用_openssl_rand_hex_32_生成
 XLEAVE_USERS=[{"id":"harries","token":"使用用户生成脚本产生的Token","allowedIps":["127.0.0.1","::1"]}]
 PORT=8787
 ```

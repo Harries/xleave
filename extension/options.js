@@ -63,4 +63,16 @@ async function restore() {
   form.maxCharacters.value = settings.maxCharacters;
   form.includeContext.checked = settings.includeContext;
   form.persona.value = settings.persona;
+  updateAccountLink(settings.backendUrl);
 }
+
+function updateAccountLink(backendUrl) {
+  const link = document.querySelector("#account-link");
+  if (!link) return;
+  const base = String(backendUrl || "").trim().replace(/\/+$/, "");
+  link.href = base ? `${base}/account` : "#";
+}
+
+document.querySelector("#backendUrl")?.addEventListener("input", (event) => {
+  updateAccountLink(event.target.value);
+});

@@ -77,11 +77,12 @@ test("requireAllowedIp accepts only configured addresses", () => {
   }
 });
 
-test("requireAllowedIp fails closed when no valid list is configured", () => {
+test("requireAllowedIp allows any IP when the list is empty (opt-out)", () => {
   const previousVercel = process.env.VERCEL;
   process.env.VERCEL = "1";
 
   try {
+    let nextCalled = false;
     const result = createResponse();
     result.response.locals.user = {
       id: "harries",
@@ -90,13 +91,12 @@ test("requireAllowedIp fails closed when no valid list is configured", () => {
     requireAllowedIp(
       { get: () => "203.0.113.10" },
       result.response,
-      () => assert.fail("missing allowlist must not call next")
+      () => {
+        nextCalled = true;
+      }
     );
-    assert.equal(result.statusCode, 503);
-    assert.deepEqual(result.body, {
-      error: "用户尚未配置有效的公网 IP；当前公网 IP：203.0.113.10",
-      clientIp: "203.0.113.10"
-    });
+    assert.equal(nextCalled, true);
+    assert.equal(result.response.locals.clientIp, "203.0.113.10");
   } finally {
     restoreEnv("VERCEL", previousVercel);
   }

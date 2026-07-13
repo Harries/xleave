@@ -1,16 +1,17 @@
 import "dotenv/config";
 
 import express from "express";
-import OpenAI from "openai";
 import { z } from "zod";
-import { zodTextFormat } from "openai/helpers/zod";
 
 import { requireUser } from "./auth.js";
 import { registerAdminRoutes } from "./admin.js";
+import { registerUserCenter } from "./user-center.js";
 import { registerHomepage } from "./homepage.js";
 import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 import { recordUserUsage } from "./user-store.js";
+import { generateCandidates } from "./ai-provider.js";
+import { decryptSecret, isSecretConfigured } from "./crypto.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
@@ -56,24 +57,13 @@ const ReplyRequest = z.object({
   }
 });
 
-const ReplyOutput = z.object({
-  replies: z
-    .array(
-      z.object({
-        tone: z.enum(["friendly", "concise", "thoughtful", "curious", "witty"]),
-        label: z.string(),
-        text: z.string()
-      })
-    )
-    .length(5)
-});
-
 const app = express();
 app.disable("x-powered-by");
 app.use(express.json({ limit: "64kb" }));
 app.use(express.urlencoded({ extended: false, limit: "16kb" }));
 
 registerHomepage(app);
+registerUserCenter(app);
 registerAdminRoutes(app);
 
 app.get("/health", (_request, response) => {
@@ -99,47 +89,50 @@ app.post(
       });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const user = response.locals.user;
+    if (!user?.aiKeyCipher) {
+      return response.status(400).json({
+        error: "请先在个人中心设置 AI Token"
+      });
+    }
+    if (!isSecretConfigured()) {
       return response.status(500).json({
-        error: "后端尚未配置 OPENAI_API_KEY"
+        error: "后端尚未配置 XLEAVE_SECRET_KEY，无法解密 AI 密钥"
       });
     }
 
+    let apiKey;
     try {
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const prompt = buildReplyInput(parsed.data);
+      apiKey = decryptSecret(user.aiKeyCipher);
+    } catch (error) {
+      console.error("[X AI Reply] failed to decrypt AI key", error);
+      return response.status(500).json({
+        error: "AI 密钥解密失败，请在个人中心重新保存"
+      });
+    }
 
-      const requestOptions = {
-        model: MODEL,
-        reasoning: { effort: "low" },
-        instructions: prompt.instructions,
-        input: prompt.input,
-        text: {
-          format: zodTextFormat(ReplyOutput, "x_reply_candidates"),
-          verbosity: "low"
-        },
-        store: false
+    // Server-stored persona (managed in the personal center) overrides the
+    // value the extension sends, while other preferences stay client-side.
+    const requestData = { ...parsed.data };
+    if (user.source === "neon" && user.persona) {
+      requestData.preferences = {
+        ...requestData.preferences,
+        persona: user.persona
       };
+    }
 
-      if (parsed.data.mode === "post") {
-        requestOptions.tools = [
-          {
-            type: "web_search",
-            search_context_size: "medium",
-            external_web_access: true
-          }
-        ];
-        requestOptions.tool_choice = "required";
-        requestOptions.include = ["web_search_call.action.sources"];
-      }
+    try {
+      const prompt = buildReplyInput(requestData);
 
-      const result = await client.responses.parse(requestOptions);
+      const { replies: rawReplies, sources } = await generateCandidates({
+        provider: user.aiProvider || "openai",
+        apiKey,
+        model: user.aiModel,
+        prompt,
+        mode: parsed.data.mode
+      });
 
-      if (!result.output_parsed) {
-        throw new Error("模型没有返回结构化结果");
-      }
-
-      const replies = result.output_parsed.replies.map((reply) => ({
+      const replies = rawReplies.map((reply) => ({
         ...reply,
         text: trimToCharacters(reply.text.trim(), prompt.maxCharacters)
       }));
@@ -150,11 +143,7 @@ app.post(
         console.error("[X AI Reply] failed to record usage", usageError);
       }
 
-      return response.json({
-        replies,
-        sources:
-          parsed.data.mode === "post" ? extractWebSources(result.output) : []
-      });
+      return response.json({ replies, sources });
     } catch (error) {
       console.error(error);
       const status = Number(error?.status);
@@ -182,31 +171,10 @@ function trimToCharacters(text, maxCharacters) {
 }
 
 function publicError(error) {
-  if (error?.status === 401) return "OpenAI API Key 无效";
-  if (error?.status === 429) return "OpenAI 请求过于频繁或额度不足";
+  if (error?.status === 401) return "AI API Key 无效";
+  if (error?.status === 429) return "AI 请求过于频繁或额度不足";
   if (error?.status >= 400 && error?.status < 500) {
-    return error.message || "OpenAI 请求参数错误";
+    return error.message || "AI 请求参数错误";
   }
   return "AI 服务暂时不可用，请稍后重试";
-}
-
-function extractWebSources(output = []) {
-  const sources = [];
-  const seen = new Set();
-
-  for (const item of output) {
-    if (item?.type !== "web_search_call") continue;
-    for (const source of item.action?.sources || []) {
-      const url = String(source?.url || "").trim();
-      if (!url || seen.has(url)) continue;
-      seen.add(url);
-      sources.push({
-        title: String(source?.title || source?.url || "热点来源").slice(0, 200),
-        url
-      });
-      if (sources.length >= 6) return sources;
-    }
-  }
-
-  return sources;
 }

@@ -9,7 +9,7 @@
   <body>
     <main>
       <h1>XLeave AI 助手</h1>
-      <p class="intro">配置服务地址、访问令牌和表达风格。插件会自动区分发帖与回复。OpenAI API Key 只保存在后端，不会进入插件。</p>
+      <p class="intro">配置服务地址、访问令牌和表达风格。插件会自动区分发帖与回复。请先在<a id="account-link" href="#" target="_blank" rel="noreferrer">用户中心</a>注册账号、设置自己的 AI Token（支持 OpenAI / DeepSeek）并获取访问令牌。</p>
 
       <form id="settings-form">
         <label>
@@ -31,9 +31,9 @@
             autocomplete="off"
             spellcheck="false"
             required
-            placeholder="填写自己生成并登记的 Token"
+            placeholder="在用户中心注册后获取的访问 Token"
           />
-          <small>令牌只保存在当前浏览器本地，不会通过 Chrome 同步。</small>
+          <small>令牌只保存在当前浏览器本地，不会通过 Chrome 同步。可在用户中心自助轮换。</small>
         </label>
 
         <label>
@@ -60,6 +60,7 @@
             rows="4"
             placeholder="例如：我是独立开发者，表达简洁、真诚，不使用夸张营销词。"
           ></textarea>
+          <small>若已在用户中心设置提示词，将优先使用后者。</small>
         </label>
 
         <label class="checkbox">

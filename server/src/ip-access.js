@@ -8,11 +8,10 @@ export function requireAllowedIp(request, response, next) {
     `[X AI Reply] user=${user?.id || "unknown"} public_ip=${clientIp || "unknown"}`
   );
 
+  // An empty allowlist means the user has opted out of IP restriction.
   if (allowedIps.size === 0) {
-    return response.status(503).json({
-      error: `用户尚未配置有效的公网 IP；当前公网 IP：${clientIp || "未识别"}`,
-      clientIp: clientIp || null
-    });
+    response.locals.clientIp = clientIp;
+    return next();
   }
 
   if (!clientIp || !allowedIps.has(clientIp)) {

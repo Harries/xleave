@@ -311,11 +311,17 @@ OpenAI Responses API
 
 管理员会话使用 HttpOnly、Secure、SameSite=Strict 的签名 Cookie。修改请求执行同源检查，页面禁止被 iframe 嵌入。
 
+#### `/register`、`/login`、`/account`（用户中心）
+
+文件：`server/src/user-center.js`
+
+服务端渲染的自助用户中心。用户可注册、登录，在个人中心自助管理：查看/轮换访问 Token、设置自带 AI Key（OpenAI / DeepSeek，AES-256-GCM 加密）、修改提示词、管理可选 IP 白名单、修改密码。登录会话与管理员一致使用 HttpOnly、Secure、SameSite=Strict 的签名 Cookie（`server/src/crypto.js`），并执行同源检查。
+
 ### 6.3 用户存储
 
 文件：`server/src/user-store.js`
 
-Neon Postgres 保存用户元数据、Token 哈希、IP 白名单和状态。Token 明文只在创建或轮换时返回一次。
+Neon Postgres 保存用户元数据、密码 scrypt 哈希、Token 哈希、加密后的 AI Key、AI 服务商与模型、提示词、IP 白名单和状态。Token 明文只在创建或轮换时返回一次，AI Key 与密码明文均不落库。
 
 ```text
 xleave_users
@@ -643,12 +649,14 @@ xleave.59et.com
 
 | 变量 | 用途 |
 | --- | --- |
-| `OPENAI_API_KEY` | 调用 OpenAI |
-| `OPENAI_MODEL` | 指定回复模型 |
+| `XLEAVE_SECRET_KEY` | 加密用户自带 AI Key（AES-256-GCM）并签名登录会话，用户中心必需 |
+| `OPENAI_MODEL` | OpenAI 用户的默认回复模型 |
 | `XLEAVE_ADMIN_TOKEN` | 管理后台登录密钥 |
 | `DATABASE_URL` | Neon Postgres 连接字符串 |
 | `XLEAVE_USERS` | 可选的旧版用户迁移兜底 |
 | `PORT` | 仅本地开发使用 |
+
+用户自带 AI Key（OpenAI 或 DeepSeek），后端不再统一配置 `OPENAI_API_KEY`。DeepSeek 走 Chat Completions 接口，暂不支持联网发帖模式。
 
 详细步骤参见 [部署与安装指南](DEPLOYMENT.zh-CN.md)。
 

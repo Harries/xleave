@@ -12,6 +12,7 @@ test("homepage introduces the extension and exposes expected destinations", () =
 
   assert.match(html, /让每一次回复/);
   assert.match(html, /不会自动发送/);
+  assert.match(html, /href="\/register"/);
   assert.doesNotMatch(html, /href="\/admin"/);
   assert.match(html, /https:\/\/github\.com\/Harries\/xleave/);
   assert.doesNotMatch(html, /twitter-logo|x-logo/i);
@@ -32,8 +33,10 @@ test("privacy page accurately describes current data handling", () => {
   const html = renderPrivacyPage();
 
   assert.match(html, /隐私政策/);
-  assert.match(html, /2026 年 6 月 22 日/);
+  assert.match(html, /2026 年 7 月 13 日/);
   assert.match(html, /store: false/);
+  assert.match(html, /DeepSeek/);
+  assert.match(html, /AES-256-GCM/);
   assert.match(html, /Token 哈希/);
   assert.match(html, /不会写入 XLeave 的 Neon 用户数据库/);
   assert.match(html, /Vercel/);

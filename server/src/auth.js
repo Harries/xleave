@@ -29,7 +29,11 @@ export async function requireUser(request, response, next) {
   response.locals.user = {
     id: user.id,
     allowedIps: user.allowedIps,
-    source: user.source
+    source: user.source,
+    aiProvider: user.aiProvider || "openai",
+    aiKeyCipher: user.aiKeyCipher || null,
+    aiModel: user.aiModel || null,
+    persona: user.persona || ""
   };
   return next();
 }

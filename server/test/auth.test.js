@@ -67,7 +67,11 @@ test("requireUser authenticates a configured user", async () => {
     assert.deepEqual(result.response.locals.user, {
       id: "harries",
       allowedIps: ["203.0.113.10", "2001:db8::1"],
-      source: "environment"
+      source: "environment",
+      aiProvider: "openai",
+      aiKeyCipher: null,
+      aiModel: null,
+      persona: ""
     });
   });
 });
