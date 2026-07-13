@@ -450,11 +450,13 @@ function sectionToken(profile) {
       <section>
         <h2>访问 Token</h2>
         ${stats}
-        <div class="secret">
-          <strong>访问 Token：</strong>
-          <code>${escapeHtml(profile.token)}</code>
-          <button type="button" data-copy="${escapeHtml(profile.token)}">复制</button>
-        </div>
+        <label>访问 Token（点击输入框可全选，或用右侧按钮复制）
+          <div class="token-copy">
+            <input id="token-value" type="text" readonly value="${escapeHtml(profile.token)}"
+              onclick="this.select()" spellcheck="false">
+            <button type="button" data-copy="${escapeHtml(profile.token)}">复制</button>
+          </div>
+        </label>
         <p class="field-hint">该 Token 已加密保存，可随时在此复制。把它填入 Chrome 插件设置即可使用。</p>
         <form method="post" action="/account/token/rotate"
           onsubmit="return confirm('轮换后旧 Token 立即失效，确认继续？')">
