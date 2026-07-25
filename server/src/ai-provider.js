@@ -11,7 +11,7 @@ export const AI_PROVIDERS = {
   },
   deepseek: {
     label: "DeepSeek",
-    defaultModel: () => "deepseek-chat",
+    defaultModel: () => process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
     baseURL: "https://api.deepseek.com",
     supportsPost: false
   }

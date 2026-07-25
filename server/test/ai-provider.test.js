@@ -60,15 +60,19 @@ const VALID_REPLIES = {
 };
 
 test("resolveModel falls back to provider defaults and honors overrides", () => {
-  const previous = process.env.OPENAI_MODEL;
+  const previousOpenai = process.env.OPENAI_MODEL;
+  const previousDeepseek = process.env.DEEPSEEK_MODEL;
   delete process.env.OPENAI_MODEL;
+  delete process.env.DEEPSEEK_MODEL;
   try {
     assert.equal(resolveModel("openai"), "gpt-5.4-mini");
-    assert.equal(resolveModel("deepseek"), "deepseek-chat");
+    assert.equal(resolveModel("deepseek"), "deepseek-v4-flash");
     assert.equal(resolveModel("deepseek", "deepseek-reasoner"), "deepseek-reasoner");
   } finally {
-    if (previous === undefined) delete process.env.OPENAI_MODEL;
-    else process.env.OPENAI_MODEL = previous;
+    if (previousOpenai === undefined) delete process.env.OPENAI_MODEL;
+    else process.env.OPENAI_MODEL = previousOpenai;
+    if (previousDeepseek === undefined) delete process.env.DEEPSEEK_MODEL;
+    else process.env.DEEPSEEK_MODEL = previousDeepseek;
   }
 });
 

@@ -518,7 +518,7 @@ function sectionAi(profile) {
 function providerKeyCard(provider, label, state = {}, defaultProvider = "openai") {
   const hasKey = Boolean(state.hasKey);
   const model = state.model || "";
-  const placeholderModel = provider === "deepseek" ? "deepseek-chat" : "gpt-5.4-mini";
+  const placeholderModel = provider === "deepseek" ? "deepseek-v4-flash" : "gpt-5.4-mini";
   const isDefault = defaultProvider === provider;
   return `
       <section>
