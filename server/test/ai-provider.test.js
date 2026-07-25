@@ -53,9 +53,7 @@ const VALID_REPLIES = {
   replies: [
     { tone: "friendly", label: "友好", text: "a" },
     { tone: "concise", label: "简短", text: "b" },
-    { tone: "thoughtful", label: "思考", text: "c" },
-    { tone: "curious", label: "好奇", text: "d" },
-    { tone: "witty", label: "幽默", text: "e" }
+    { tone: "thoughtful", label: "思考", text: "c" }
   ]
 };
 
@@ -104,7 +102,7 @@ test("parseDeepseekReplies rejects malformed or schema-violating output", () => 
   assert.throws(() => parseDeepseekReplies("not json"));
   assert.throws(() =>
     parseDeepseekReplies(
-      JSON.stringify({ replies: VALID_REPLIES.replies.slice(0, 3) })
+      JSON.stringify({ replies: VALID_REPLIES.replies.slice(0, 2) })
     )
   );
 });

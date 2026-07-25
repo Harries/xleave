@@ -21,8 +21,8 @@ test("buildReplyInput clamps length and excludes context when disabled", () => {
   assert.match(result.instructions, /real person casually joining a conversation/);
   assert.match(result.instructions, /Avoid canned openings/);
   assert.match(result.instructions, /Vary the length on purpose/);
-  assert.match(result.instructions, /not five labeled writing exercises/);
-  assert.match(result.instructions, /exactly five meaningfully different candidates/);
+  assert.match(result.instructions, /not three labeled writing exercises/);
+  assert.match(result.instructions, /exactly three meaningfully different candidates/);
   assert.deepEqual(JSON.parse(result.input).visibleThreadContext, []);
 });
 
@@ -34,7 +34,7 @@ test("buildReplyInput defaults replies to varied human-sized candidates", () => 
 
   assert.equal(result.maxCharacters, 180);
   assert.match(result.instructions, /Use the maximum only as a hard cap/);
-  assert.match(result.instructions, /Do not make all five candidates the same length/);
+  assert.match(result.instructions, /Do not make all three candidates the same length/);
 });
 
 test("buildReplyInput uses detected source language when language is auto", () => {

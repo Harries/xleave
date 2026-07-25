@@ -17,19 +17,30 @@ export const AI_PROVIDERS = {
   }
 };
 
-export const ReplyOutput = z.object({
-  replies: z
-    .array(
-      z.object({
-        tone: z.enum(["friendly", "concise", "thoughtful", "curious", "witty"]),
-        label: z.string(),
-        text: z.string()
-      })
-    )
-    .length(5)
-});
-
 const TONE_ORDER = ["friendly", "concise", "thoughtful", "curious", "witty"];
+
+// How many candidates each mode generates. Reply mode is kept lean (3) so the
+// blocking model call returns faster; post mode still offers a full spread.
+export const CANDIDATE_COUNTS = { reply: 3, post: 5 };
+
+function candidateCount(mode) {
+  return mode === "post" ? CANDIDATE_COUNTS.post : CANDIDATE_COUNTS.reply;
+}
+
+// Structured-output schema for `count` candidates, in TONE_ORDER order.
+function makeReplyOutput(count) {
+  return z.object({
+    replies: z
+      .array(
+        z.object({
+          tone: z.enum(TONE_ORDER),
+          label: z.string(),
+          text: z.string()
+        })
+      )
+      .length(count)
+  });
+}
 
 /**
  * Decide which provider a request should use given the user's configured keys.
@@ -72,19 +83,21 @@ export async function generateCandidates({
   const config = AI_PROVIDERS[provider];
   if (!config) throw new Error("暂不支持的 AI 服务商");
 
+  const count = candidateCount(mode);
+
   if (provider === "deepseek") {
     if (mode === "post") {
       throw badRequest(
         "DeepSeek 暂不支持联网发帖模式，请在个人中心切换到 OpenAI，或改用回复模式。"
       );
     }
-    return generateWithDeepseek({ apiKey, model, prompt });
+    return generateWithDeepseek({ apiKey, model, prompt, count });
   }
 
-  return generateWithOpenai({ apiKey, model, prompt, mode });
+  return generateWithOpenai({ apiKey, model, prompt, mode, count });
 }
 
-async function generateWithOpenai({ apiKey, model, prompt, mode }) {
+async function generateWithOpenai({ apiKey, model, prompt, mode, count }) {
   const client = new OpenAI({ apiKey });
   const requestOptions = {
     model: resolveModel("openai", model),
@@ -92,7 +105,7 @@ async function generateWithOpenai({ apiKey, model, prompt, mode }) {
     instructions: prompt.instructions,
     input: prompt.input,
     text: {
-      format: zodTextFormat(ReplyOutput, "x_reply_candidates"),
+      format: zodTextFormat(makeReplyOutput(count), "x_reply_candidates"),
       verbosity: "low"
     },
     store: false
@@ -121,7 +134,8 @@ async function generateWithOpenai({ apiKey, model, prompt, mode }) {
   };
 }
 
-async function generateWithDeepseek({ apiKey, model, prompt }) {
+async function generateWithDeepseek({ apiKey, model, prompt, count }) {
+  const replyCount = count ?? CANDIDATE_COUNTS.reply;
   const client = new OpenAI({
     apiKey,
     baseURL: AI_PROVIDERS.deepseek.baseURL
@@ -129,21 +143,22 @@ async function generateWithDeepseek({ apiKey, model, prompt }) {
 
   const completion = await client.chat.completions.create({
     model: resolveModel("deepseek", model),
-    messages: buildDeepseekMessages(prompt),
+    messages: buildDeepseekMessages(prompt, replyCount),
     response_format: { type: "json_object" },
     temperature: 0.9
   });
 
   const content = completion.choices?.[0]?.message?.content || "";
-  return { replies: parseDeepseekReplies(content), sources: [] };
+  return { replies: parseDeepseekReplies(content, replyCount), sources: [] };
 }
 
 // Exported for unit testing (pure, no network).
-export function buildDeepseekMessages(prompt) {
+export function buildDeepseekMessages(prompt, count = CANDIDATE_COUNTS.reply) {
+  const tones = TONE_ORDER.slice(0, count);
   const shape = [
     "Return ONLY a valid JSON object, no markdown, no commentary.",
     'Shape: {"replies":[{"tone":string,"label":string,"text":string}]}.',
-    `Provide exactly five items whose "tone" values are, in order: ${TONE_ORDER.join(", ")}.`,
+    `Provide exactly ${count} items whose "tone" values are, in order: ${tones.join(", ")}.`,
     '"label" is a short Chinese label for the tone; "text" is the reply itself.'
   ].join(" ");
 
@@ -154,7 +169,7 @@ export function buildDeepseekMessages(prompt) {
 }
 
 // Exported for unit testing.
-export function parseDeepseekReplies(content) {
+export function parseDeepseekReplies(content, count = CANDIDATE_COUNTS.reply) {
   let parsed;
   try {
     parsed = JSON.parse(extractJsonObject(content));
@@ -162,7 +177,7 @@ export function parseDeepseekReplies(content) {
     throw new Error("AI 返回的内容不是有效的 JSON");
   }
 
-  const result = ReplyOutput.safeParse(parsed);
+  const result = makeReplyOutput(count).safeParse(parsed);
   if (!result.success) {
     throw new Error("AI 返回的内容格式不符合要求");
   }
