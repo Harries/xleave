@@ -374,14 +374,38 @@ function chooseSourceArticle(articles, composer) {
     .sort((a, b) => a.distance - b.distance)[0].article;
 }
 
+const ARTICLE_TEXT_LIMIT = 8000;
+
+// X 长文（Article）不使用 tweetText，正文在专用的富文本容器里。
+// 抓不到普通推文文字时，回退提取文章标题与正文。
+function extractArticleText(article) {
+  const title = article
+    .querySelector('[data-testid="twitter-article-title"]')
+    ?.innerText.trim();
+  const body = article
+    .querySelector(
+      '[data-testid="longformRichTextComponent"], [data-testid="twitterArticleRichTextView"]'
+    )
+    ?.innerText.trim();
+
+  if (!title && !body) return "";
+
+  let text = [title, body].filter(Boolean).join("\n\n");
+  if (text.length > ARTICLE_TEXT_LIMIT) {
+    text = `${text.slice(0, ARTICLE_TEXT_LIMIT).trimEnd()}…`;
+  }
+  return text;
+}
+
 function extractPost(article) {
   const userName = article.querySelector('[data-testid="User-Name"]');
   const textNodes = article.querySelectorAll('[data-testid="tweetText"]');
-  const text = [...textNodes]
-    .filter((node) => node.closest("article") === article)
-    .map((node) => node.innerText.trim())
-    .filter(Boolean)
-    .join("\n");
+  const text =
+    [...textNodes]
+      .filter((node) => node.closest("article") === article)
+      .map((node) => node.innerText.trim())
+      .filter(Boolean)
+      .join("\n") || extractArticleText(article);
 
   const profileLink = [...(userName?.querySelectorAll('a[href^="/"]') || [])].find((link) =>
     /^\/[^/]+$/.test(link.getAttribute("href") || "")
