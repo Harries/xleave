@@ -73,6 +73,8 @@ test("requireUser authenticates a configured user", async () => {
       openaiModel: null,
       deepseekKeyCipher: null,
       deepseekModel: null,
+      minimaxKeyCipher: null,
+      minimaxModel: null,
       persona: "",
       prefLanguage: null,
       prefMaxCharacters: null,

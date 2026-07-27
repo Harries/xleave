@@ -35,6 +35,8 @@ export async function requireUser(request, response, next) {
     openaiModel: user.openaiModel || null,
     deepseekKeyCipher: user.deepseekKeyCipher || null,
     deepseekModel: user.deepseekModel || null,
+    minimaxKeyCipher: user.minimaxKeyCipher || null,
+    minimaxModel: user.minimaxModel || null,
     persona: user.persona || "",
     prefLanguage: user.prefLanguage ?? null,
     prefMaxCharacters: user.prefMaxCharacters ?? null,
