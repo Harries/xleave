@@ -14,6 +14,14 @@ export const AI_PROVIDERS = {
     defaultModel: () => process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
     baseURL: "https://api.deepseek.com",
     supportsPost: false
+  },
+  minimax: {
+    label: "MiniMax",
+    // MiniMax's "-highspeed" variants return short completions faster, which is
+    // exactly what reply mode needs (DeepSeek was too slow for interactive use).
+    defaultModel: () => process.env.MINIMAX_MODEL || "MiniMax-M2.7-highspeed",
+    baseURL: "https://api.minimax.io/v1",
+    supportsPost: false
   }
 };
 
@@ -50,24 +58,42 @@ function makeReplyOutput(count) {
   });
 }
 
+// Stable priority order used when the default provider has no key configured.
+const PROVIDER_FALLBACK_ORDER = ["openai", "deepseek", "minimax"];
+
 /**
  * Decide which provider a request should use given the user's configured keys.
- * - post mode always needs OpenAI (DeepSeek can't web-search)
+ * - post mode always needs OpenAI (only OpenAI can web-search)
  * - otherwise honor the default provider, falling back to whichever key exists
  * Returns { provider } on success, or { error } with a stable reason code.
  */
-export function chooseProvider({ mode, defaultProvider, hasOpenai, hasDeepseek }) {
-  if (!hasOpenai && !hasDeepseek) return { error: "no-key" };
+export function chooseProvider({
+  mode,
+  defaultProvider,
+  hasOpenai,
+  hasDeepseek,
+  hasMinimax
+}) {
+  const available = {
+    openai: Boolean(hasOpenai),
+    deepseek: Boolean(hasDeepseek),
+    minimax: Boolean(hasMinimax)
+  };
+  if (!available.openai && !available.deepseek && !available.minimax) {
+    return { error: "no-key" };
+  }
 
   if (mode === "post") {
-    if (!hasOpenai) return { error: "post-needs-openai" };
+    if (!available.openai) return { error: "post-needs-openai" };
     return { provider: "openai" };
   }
 
-  let provider = defaultProvider === "deepseek" ? "deepseek" : "openai";
-  if (provider === "openai" && !hasOpenai) provider = "deepseek";
-  if (provider === "deepseek" && !hasDeepseek) provider = "openai";
-  return { provider };
+  const preferred = PROVIDER_FALLBACK_ORDER.includes(defaultProvider)
+    ? defaultProvider
+    : "openai";
+  if (available[preferred]) return { provider: preferred };
+
+  return { provider: PROVIDER_FALLBACK_ORDER.find((p) => available[p]) };
 }
 
 export function resolveModel(provider, model) {
@@ -93,16 +119,18 @@ export async function generateCandidates({
 
   const count = candidateCount(mode);
 
-  if (provider === "deepseek") {
-    if (mode === "post") {
-      throw badRequest(
-        "DeepSeek 暂不支持联网发帖模式，请在个人中心切换到 OpenAI，或改用回复模式。"
-      );
-    }
-    return generateWithDeepseek({ apiKey, model, prompt, count });
+  if (provider === "openai") {
+    return generateWithOpenai({ apiKey, model, prompt, mode, count });
   }
 
-  return generateWithOpenai({ apiKey, model, prompt, mode, count });
+  // Every other provider is an OpenAI-compatible chat-completions endpoint that
+  // can't web-search, so it can't serve post mode.
+  if (mode === "post") {
+    throw badRequest(
+      `${config.label} 暂不支持联网发帖模式，请在个人中心切换到 OpenAI，或改用回复模式。`
+    );
+  }
+  return generateWithChatCompletions({ provider, apiKey, model, prompt, count });
 }
 
 async function generateWithOpenai({ apiKey, model, prompt, mode, count }) {
@@ -150,15 +178,18 @@ async function generateWithOpenai({ apiKey, model, prompt, mode, count }) {
   };
 }
 
-async function generateWithDeepseek({ apiKey, model, prompt, count }) {
+// Shared path for OpenAI-compatible chat-completions providers (DeepSeek,
+// MiniMax, …). They all speak the same JSON-object protocol; only the baseURL
+// and model default differ, both keyed off the provider.
+async function generateWithChatCompletions({ provider, apiKey, model, prompt, count }) {
   const replyCount = count ?? CANDIDATE_COUNTS.reply;
   const client = new OpenAI({
     apiKey,
-    baseURL: AI_PROVIDERS.deepseek.baseURL
+    baseURL: AI_PROVIDERS[provider].baseURL
   });
 
   const completion = await client.chat.completions.create({
-    model: resolveModel("deepseek", model),
+    model: resolveModel(provider, model),
     messages: buildDeepseekMessages(prompt, replyCount),
     response_format: { type: "json_object" },
     temperature: 0.9,

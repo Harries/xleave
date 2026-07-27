@@ -94,7 +94,8 @@ app.post(
       mode: parsed.data.mode,
       defaultProvider: user?.defaultProvider,
       hasOpenai: Boolean(user?.openaiKeyCipher),
-      hasDeepseek: Boolean(user?.deepseekKeyCipher)
+      hasDeepseek: Boolean(user?.deepseekKeyCipher),
+      hasMinimax: Boolean(user?.minimaxKeyCipher)
     });
     if (choice.error === "no-key") {
       return response.status(400).json({
@@ -113,10 +114,13 @@ app.post(
     }
 
     const provider = choice.provider;
-    const keyCipher =
-      provider === "deepseek" ? user.deepseekKeyCipher : user.openaiKeyCipher;
-    const providerModel =
-      provider === "deepseek" ? user.deepseekModel : user.openaiModel;
+    const providerCiphers = {
+      openai: { keyCipher: user.openaiKeyCipher, model: user.openaiModel },
+      deepseek: { keyCipher: user.deepseekKeyCipher, model: user.deepseekModel },
+      minimax: { keyCipher: user.minimaxKeyCipher, model: user.minimaxModel }
+    };
+    const keyCipher = providerCiphers[provider]?.keyCipher;
+    const providerModel = providerCiphers[provider]?.model;
 
     let apiKey;
     try {

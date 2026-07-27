@@ -49,6 +49,40 @@ test("chooseProvider reports no-key when nothing is configured", () => {
   );
 });
 
+test("chooseProvider supports MiniMax as default and fallback", () => {
+  assert.deepEqual(
+    chooseProvider({
+      mode: "reply",
+      defaultProvider: "minimax",
+      hasOpenai: true,
+      hasDeepseek: true,
+      hasMinimax: true
+    }),
+    { provider: "minimax" }
+  );
+  // Only a MiniMax key configured: reply mode uses it, post mode still needs OpenAI.
+  assert.deepEqual(
+    chooseProvider({
+      mode: "reply",
+      defaultProvider: "openai",
+      hasOpenai: false,
+      hasDeepseek: false,
+      hasMinimax: true
+    }),
+    { provider: "minimax" }
+  );
+  assert.deepEqual(
+    chooseProvider({
+      mode: "post",
+      defaultProvider: "minimax",
+      hasOpenai: false,
+      hasDeepseek: false,
+      hasMinimax: true
+    }),
+    { error: "post-needs-openai" }
+  );
+});
+
 const VALID_REPLIES = {
   replies: [
     { tone: "friendly", label: "友好", text: "a" },
@@ -59,17 +93,23 @@ const VALID_REPLIES = {
 test("resolveModel falls back to provider defaults and honors overrides", () => {
   const previousOpenai = process.env.OPENAI_MODEL;
   const previousDeepseek = process.env.DEEPSEEK_MODEL;
+  const previousMinimax = process.env.MINIMAX_MODEL;
   delete process.env.OPENAI_MODEL;
   delete process.env.DEEPSEEK_MODEL;
+  delete process.env.MINIMAX_MODEL;
   try {
     assert.equal(resolveModel("openai"), "gpt-5.4-mini");
     assert.equal(resolveModel("deepseek"), "deepseek-v4-flash");
     assert.equal(resolveModel("deepseek", "deepseek-reasoner"), "deepseek-reasoner");
+    assert.equal(resolveModel("minimax"), "MiniMax-M2.7-highspeed");
+    assert.equal(resolveModel("minimax", "MiniMax-M3"), "MiniMax-M3");
   } finally {
     if (previousOpenai === undefined) delete process.env.OPENAI_MODEL;
     else process.env.OPENAI_MODEL = previousOpenai;
     if (previousDeepseek === undefined) delete process.env.DEEPSEEK_MODEL;
     else process.env.DEEPSEEK_MODEL = previousDeepseek;
+    if (previousMinimax === undefined) delete process.env.MINIMAX_MODEL;
+    else process.env.MINIMAX_MODEL = previousMinimax;
   }
 });
 
@@ -115,6 +155,18 @@ test("generateCandidates rejects DeepSeek in post mode", async () => {
       mode: "post"
     }),
     /DeepSeek 暂不支持联网发帖/
+  );
+});
+
+test("generateCandidates rejects MiniMax in post mode", async () => {
+  await assert.rejects(
+    generateCandidates({
+      provider: "minimax",
+      apiKey: "sk-x",
+      prompt: { instructions: "i", input: "u" },
+      mode: "post"
+    }),
+    /MiniMax 暂不支持联网发帖/
   );
 });
 

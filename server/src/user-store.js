@@ -11,7 +11,7 @@ import {
   verifyPassword
 } from "./crypto.js";
 
-const AI_PROVIDERS = new Set(["openai", "deepseek"]);
+const AI_PROVIDERS = new Set(["openai", "deepseek", "minimax"]);
 
 let sqlClient;
 let schemaPromise;
@@ -29,6 +29,7 @@ export async function findUserByToken(token) {
     const rows = await sql`
       SELECT id, allowed_ips, enabled, default_provider,
         openai_key_cipher, openai_model, deepseek_key_cipher, deepseek_model,
+        minimax_key_cipher, minimax_model,
         persona, pref_language, pref_max_characters, pref_include_context
       FROM xleave_users
       WHERE token_hash = ${tokenHash}
@@ -46,6 +47,8 @@ export async function findUserByToken(token) {
         openaiModel: user.openai_model || null,
         deepseekKeyCipher: user.deepseek_key_cipher || null,
         deepseekModel: user.deepseek_model || null,
+        minimaxKeyCipher: user.minimax_key_cipher || null,
+        minimaxModel: user.minimax_model || null,
         persona: user.persona || "",
         prefLanguage: user.pref_language || "auto",
         prefMaxCharacters: Number(user.pref_max_characters ?? 180),
@@ -282,7 +285,8 @@ export async function getAccountProfile(id) {
   const rows = await sql`
     SELECT id, token_hint, token_cipher, allowed_ips, enabled, usage_count, last_used_at,
       default_provider, openai_key_cipher, openai_model,
-      deepseek_key_cipher, deepseek_model, persona,
+      deepseek_key_cipher, deepseek_model,
+      minimax_key_cipher, minimax_model, persona,
       pref_language, pref_max_characters, pref_include_context,
       created_at, updated_at
     FROM xleave_users
@@ -304,6 +308,10 @@ export async function getAccountProfile(id) {
       deepseek: {
         hasKey: Boolean(row.deepseek_key_cipher),
         model: row.deepseek_model || ""
+      },
+      minimax: {
+        hasKey: Boolean(row.minimax_key_cipher),
+        model: row.minimax_model || ""
       }
     },
     prefLanguage: row.pref_language || "auto",
@@ -314,7 +322,8 @@ export async function getAccountProfile(id) {
 
 const PROVIDER_COLUMNS = {
   openai: { key: "openai_key_cipher", model: "openai_model" },
-  deepseek: { key: "deepseek_key_cipher", model: "deepseek_model" }
+  deepseek: { key: "deepseek_key_cipher", model: "deepseek_model" },
+  minimax: { key: "minimax_key_cipher", model: "minimax_model" }
 };
 
 export async function updateProviderSettings(id, { provider, apiKey, model }) {
@@ -514,6 +523,14 @@ async function ensureSchema() {
     await sql`
       ALTER TABLE xleave_users
       ADD COLUMN IF NOT EXISTS deepseek_model VARCHAR(80)
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS minimax_key_cipher TEXT
+    `;
+    await sql`
+      ALTER TABLE xleave_users
+      ADD COLUMN IF NOT EXISTS minimax_model VARCHAR(80)
     `;
     await sql`
       ALTER TABLE xleave_users

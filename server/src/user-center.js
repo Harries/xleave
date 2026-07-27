@@ -483,7 +483,8 @@ function sectionToken(profile) {
 function sectionAi(profile) {
   const providers = profile.providers || {
     openai: { hasKey: false, model: "" },
-    deepseek: { hasKey: false, model: "" }
+    deepseek: { hasKey: false, model: "" },
+    minimax: { hasKey: false, model: "" }
   };
   const defaultProvider = profile.defaultProvider || "openai";
   const defaultOptions = Object.entries(AI_PROVIDERS)
@@ -499,8 +500,8 @@ function sectionAi(profile) {
       <section>
         <h2>默认服务商</h2>
         <p class="field-hint">
-          两家都配置 Key 时，生成默认走这里选择的服务商。
-          发帖模式始终使用 OpenAI（DeepSeek 不支持联网检索）；
+          配置了多家 Key 时，生成默认走这里选择的服务商。
+          发帖模式始终使用 OpenAI（DeepSeek、MiniMax 不支持联网检索）；
           若默认服务商未配置 Key，会自动回退到另一家已配置的服务商。
         </p>
         <form method="post" action="/account/ai/default" class="grid-form">
@@ -512,13 +513,16 @@ function sectionAi(profile) {
       </section>
 
       ${providerKeyCard("openai", "OpenAI", providers.openai, defaultProvider)}
-      ${providerKeyCard("deepseek", "DeepSeek", providers.deepseek, defaultProvider)}`;
+      ${providerKeyCard("deepseek", "DeepSeek", providers.deepseek, defaultProvider)}
+      ${providerKeyCard("minimax", "MiniMax", providers.minimax, defaultProvider)}`;
 }
 
 function providerKeyCard(provider, label, state = {}, defaultProvider = "openai") {
   const hasKey = Boolean(state.hasKey);
   const model = state.model || "";
-  const placeholderModel = provider === "deepseek" ? "deepseek-v4-flash" : "gpt-5.4-mini";
+  const placeholderModel =
+    { deepseek: "deepseek-v4-flash", minimax: "MiniMax-M2.7-highspeed" }[provider] ||
+    "gpt-5.4-mini";
   const isDefault = defaultProvider === provider;
   return `
       <section>
