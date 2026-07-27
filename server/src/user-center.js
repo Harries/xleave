@@ -521,7 +521,7 @@ function providerKeyCard(provider, label, state = {}, defaultProvider = "openai"
   const hasKey = Boolean(state.hasKey);
   const model = state.model || "";
   const placeholderModel =
-    { deepseek: "deepseek-v4-flash", minimax: "MiniMax-M2.7-highspeed" }[provider] ||
+    { deepseek: "deepseek-v4-flash", minimax: "MiniMax-M3" }[provider] ||
     "gpt-5.4-mini";
   const isDefault = defaultProvider === provider;
   return `

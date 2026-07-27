@@ -17,9 +17,10 @@ export const AI_PROVIDERS = {
   },
   minimax: {
     label: "MiniMax",
-    // MiniMax's "-highspeed" variants return short completions faster, which is
-    // exactly what reply mode needs (DeepSeek was too slow for interactive use).
-    defaultModel: () => process.env.MINIMAX_MODEL || "MiniMax-M2.7-highspeed",
+    // Default to M3: it's the only MiniMax model whose chain-of-thought can be
+    // switched off (see generateWithChatCompletions), which is what keeps reply
+    // latency low. The M2.x models always "think" and stay slow for short replies.
+    defaultModel: () => process.env.MINIMAX_MODEL || "MiniMax-M3",
     // Default to the China-mainland host (api.minimaxi.com — note the "i").
     // Set MINIMAX_BASE_URL=https://api.minimax.io/v1 for international accounts.
     baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimaxi.com/v1",
@@ -190,13 +191,22 @@ async function generateWithChatCompletions({ provider, apiKey, model, prompt, co
     baseURL: AI_PROVIDERS[provider].baseURL
   });
 
-  const completion = await client.chat.completions.create({
+  const requestBody = {
     model: resolveModel(provider, model),
     messages: buildDeepseekMessages(prompt, replyCount),
     response_format: { type: "json_object" },
     temperature: 0.9,
     max_tokens: replyTokenBudget(prompt.maxCharacters, replyCount)
-  });
+  };
+
+  // MiniMax M3 answers directly (no chain-of-thought) when thinking is disabled,
+  // which is far faster for short replies. M2.x accepts the flag but keeps
+  // thinking on, so sending it is always safe for MiniMax.
+  if (provider === "minimax") {
+    requestBody.thinking = { type: "disabled" };
+  }
+
+  const completion = await client.chat.completions.create(requestBody);
 
   const content = completion.choices?.[0]?.message?.content || "";
   return { replies: parseDeepseekReplies(content, replyCount), sources: [] };

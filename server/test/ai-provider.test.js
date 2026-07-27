@@ -101,8 +101,8 @@ test("resolveModel falls back to provider defaults and honors overrides", () => 
     assert.equal(resolveModel("openai"), "gpt-5.4-mini");
     assert.equal(resolveModel("deepseek"), "deepseek-v4-flash");
     assert.equal(resolveModel("deepseek", "deepseek-reasoner"), "deepseek-reasoner");
-    assert.equal(resolveModel("minimax"), "MiniMax-M2.7-highspeed");
-    assert.equal(resolveModel("minimax", "MiniMax-M3"), "MiniMax-M3");
+    assert.equal(resolveModel("minimax"), "MiniMax-M3");
+    assert.equal(resolveModel("minimax", "MiniMax-M2.7"), "MiniMax-M2.7");
   } finally {
     if (previousOpenai === undefined) delete process.env.OPENAI_MODEL;
     else process.env.OPENAI_MODEL = previousOpenai;
