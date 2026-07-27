@@ -30,6 +30,15 @@ export const AI_PROVIDERS = {
 
 const TONE_ORDER = ["friendly", "concise", "thoughtful", "curious", "witty"];
 
+// Fallback Chinese labels when an OpenAI-compatible model omits/garbles "label".
+const TONE_LABELS = {
+  friendly: "友好",
+  concise: "简短",
+  thoughtful: "有想法",
+  curious: "好奇",
+  witty: "风趣"
+};
+
 // How many candidates each mode generates. Reply mode is kept lean (2) so the
 // blocking model call returns faster; post mode still offers a full spread.
 export const CANDIDATE_COUNTS = { reply: 2, post: 5 };
@@ -238,7 +247,11 @@ export function buildDeepseekMessages(prompt, count = CANDIDATE_COUNTS.reply) {
   ];
 }
 
-// Exported for unit testing.
+// Exported for unit testing. Lenient by design: unlike the OpenAI path (whose
+// output is schema-constrained), OpenAI-compatible chat models return free-form
+// JSON, so we coerce whatever they give — wrong/missing tone, missing label, an
+// array instead of {replies}, or fewer items than requested — into valid shapes
+// rather than failing the whole request.
 export function parseDeepseekReplies(content, count = CANDIDATE_COUNTS.reply) {
   let parsed;
   try {
@@ -247,23 +260,61 @@ export function parseDeepseekReplies(content, count = CANDIDATE_COUNTS.reply) {
     throw new Error("AI 返回的内容不是有效的 JSON");
   }
 
-  const result = makeReplyOutput(count).safeParse(parsed);
-  if (!result.success) {
+  const rawList = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.replies)
+      ? parsed.replies
+      : null;
+
+  if (!rawList) {
     throw new Error("AI 返回的内容格式不符合要求");
   }
-  return result.data.replies;
+
+  const replies = rawList
+    .map((item, index) => normalizeReply(item, index))
+    .filter((reply) => reply.text)
+    .slice(0, count);
+
+  if (replies.length === 0) {
+    throw new Error("AI 返回的内容格式不符合要求");
+  }
+  return replies;
+}
+
+// Coerce one free-form item into { tone, label, text }. Tone falls back to the
+// requested TONE_ORDER slot; label falls back to the tone's Chinese label; text
+// accepts a bare string item too.
+function normalizeReply(item, index) {
+  const tone = TONE_ORDER.includes(item?.tone)
+    ? item.tone
+    : TONE_ORDER[index % TONE_ORDER.length];
+  const text =
+    typeof item?.text === "string"
+      ? item.text
+      : typeof item === "string"
+        ? item
+        : "";
+  const label =
+    typeof item?.label === "string" && item.label.trim()
+      ? item.label
+      : TONE_LABELS[tone];
+  return { tone, label, text: text.trim() };
 }
 
 function extractJsonObject(content) {
   const text = String(content || "").trim();
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) return fenced[1].trim();
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    return text.slice(start, end + 1);
-  }
-  return text;
+  const body = fenced ? fenced[1].trim() : text;
+  // Parse the whole body when it is already valid JSON (object or array);
+  // otherwise fall back to the outermost {...} or [...] span in the text.
+  if (/^[[{]/.test(body)) return body;
+  const objStart = body.indexOf("{");
+  const objEnd = body.lastIndexOf("}");
+  const arrStart = body.indexOf("[");
+  const arrEnd = body.lastIndexOf("]");
+  if (objStart !== -1 && objEnd > objStart) return body.slice(objStart, objEnd + 1);
+  if (arrStart !== -1 && arrEnd > arrStart) return body.slice(arrStart, arrEnd + 1);
+  return body;
 }
 
 export function extractWebSources(output = []) {

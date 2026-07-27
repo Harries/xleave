@@ -137,12 +137,29 @@ test("parseDeepseekReplies accepts valid JSON and fenced JSON", () => {
   );
 });
 
-test("parseDeepseekReplies rejects malformed or schema-violating output", () => {
+test("parseDeepseekReplies rejects non-JSON and empty payloads", () => {
   assert.throws(() => parseDeepseekReplies("not json"));
-  assert.throws(() =>
-    parseDeepseekReplies(
-      JSON.stringify({ replies: VALID_REPLIES.replies.slice(0, 1) })
-    )
+  assert.throws(() => parseDeepseekReplies(JSON.stringify({ replies: [] })));
+});
+
+test("parseDeepseekReplies leniently coerces imperfect model output", () => {
+  // Fewer items than requested are kept rather than rejected.
+  assert.deepEqual(
+    parseDeepseekReplies(JSON.stringify({ replies: VALID_REPLIES.replies.slice(0, 1) })),
+    [{ tone: "friendly", label: "友好", text: "a" }]
+  );
+  // Unknown tone falls back to the ordered slot; missing label fills from tone.
+  assert.deepEqual(
+    parseDeepseekReplies(JSON.stringify({ replies: [{ text: "hi" }, { tone: "???", text: "yo" }] })),
+    [
+      { tone: "friendly", label: "友好", text: "hi" },
+      { tone: "concise", label: "简短", text: "yo" }
+    ]
+  );
+  // A bare JSON array (no {replies} wrapper) is accepted too.
+  assert.deepEqual(
+    parseDeepseekReplies(JSON.stringify([{ tone: "friendly", label: "友好", text: "a" }])),
+    [{ tone: "friendly", label: "友好", text: "a" }]
   );
 });
 
