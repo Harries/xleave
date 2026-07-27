@@ -10,7 +10,7 @@ import { registerHomepage } from "./homepage.js";
 import { getClientIp, requireAllowedIp } from "./ip-access.js";
 import { buildReplyInput } from "./prompt.js";
 import { recordUserUsage } from "./user-store.js";
-import { chooseProvider, generateCandidates } from "./ai-provider.js";
+import { CANDIDATE_COUNTS, chooseProvider, generateCandidates } from "./ai-provider.js";
 import { decryptSecret, isSecretConfigured } from "./crypto.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -169,6 +169,13 @@ app.post(
         console.error("[X AI Reply] failed to record usage", usageError);
       }
 
+      // Ground-truth of how many candidates this build returns — compare against
+      // what the extension shows to tell code changes from stale deployments.
+      console.log(
+        `[X AI Reply] mode=${parsed.data.mode} provider=${provider} ` +
+          `configured=${CANDIDATE_COUNTS[parsed.data.mode === "post" ? "post" : "reply"]} ` +
+          `returned=${replies.length}`
+      );
       return response.json({ replies, sources });
     } catch (error) {
       console.error(error);
