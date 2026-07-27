@@ -27,6 +27,14 @@ function candidateCount(mode) {
   return mode === "post" ? CANDIDATE_COUNTS.post : CANDIDATE_COUNTS.reply;
 }
 
+// Upper bound on generated tokens so a runaway completion can't stall the
+// blocking call. Sized generously (~3 tokens per Unicode char, worst case for
+// CJK) so it never truncates the structured JSON, only caps pathological runs.
+function replyTokenBudget(maxCharacters, count) {
+  const chars = Number(maxCharacters) || 180;
+  return Math.min(6000, count * chars * 3 + 400);
+}
+
 // Structured-output schema for `count` candidates, in TONE_ORDER order.
 function makeReplyOutput(count) {
   return z.object({
@@ -99,9 +107,13 @@ export async function generateCandidates({
 
 async function generateWithOpenai({ apiKey, model, prompt, mode, count }) {
   const client = new OpenAI({ apiKey });
+  const isPost = mode === "post";
   const requestOptions = {
     model: resolveModel("openai", model),
-    reasoning: { effort: "low" },
+    // Reply mode is short casual text that needs no chain-of-thought, so run the
+    // model at minimal reasoning for a much faster return. Post mode keeps some
+    // reasoning to synthesize live web-search results.
+    reasoning: { effort: isPost ? "low" : "minimal" },
     instructions: prompt.instructions,
     input: prompt.input,
     text: {
@@ -110,6 +122,10 @@ async function generateWithOpenai({ apiKey, model, prompt, mode, count }) {
     },
     store: false
   };
+
+  if (!isPost) {
+    requestOptions.max_output_tokens = replyTokenBudget(prompt.maxCharacters, count);
+  }
 
   if (mode === "post") {
     requestOptions.tools = [
@@ -145,7 +161,8 @@ async function generateWithDeepseek({ apiKey, model, prompt, count }) {
     model: resolveModel("deepseek", model),
     messages: buildDeepseekMessages(prompt, replyCount),
     response_format: { type: "json_object" },
-    temperature: 0.9
+    temperature: 0.9,
+    max_tokens: replyTokenBudget(prompt.maxCharacters, replyCount)
   });
 
   const content = completion.choices?.[0]?.message?.content || "";
