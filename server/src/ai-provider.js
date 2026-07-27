@@ -20,7 +20,9 @@ export const AI_PROVIDERS = {
     // MiniMax's "-highspeed" variants return short completions faster, which is
     // exactly what reply mode needs (DeepSeek was too slow for interactive use).
     defaultModel: () => process.env.MINIMAX_MODEL || "MiniMax-M2.7-highspeed",
-    baseURL: "https://api.minimax.io/v1",
+    // Default to the China-mainland host (api.minimaxi.com — note the "i").
+    // Set MINIMAX_BASE_URL=https://api.minimax.io/v1 for international accounts.
+    baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimaxi.com/v1",
     supportsPost: false
   }
 };
