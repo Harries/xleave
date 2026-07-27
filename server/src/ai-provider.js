@@ -19,9 +19,9 @@ export const AI_PROVIDERS = {
 
 const TONE_ORDER = ["friendly", "concise", "thoughtful", "curious", "witty"];
 
-// How many candidates each mode generates. Reply mode is kept lean (3) so the
+// How many candidates each mode generates. Reply mode is kept lean (2) so the
 // blocking model call returns faster; post mode still offers a full spread.
-export const CANDIDATE_COUNTS = { reply: 3, post: 5 };
+export const CANDIDATE_COUNTS = { reply: 2, post: 5 };
 
 function candidateCount(mode) {
   return mode === "post" ? CANDIDATE_COUNTS.post : CANDIDATE_COUNTS.reply;
