@@ -39,9 +39,9 @@ const TONE_LABELS = {
   witty: "风趣"
 };
 
-// How many candidates each mode generates — one per tone in TONE_ORDER, so the
-// user gets the full spread of styles to choose from.
-export const CANDIDATE_COUNTS = { reply: 5, post: 5 };
+// How many candidates each mode generates. Reply mode returns 3 (a balance
+// between choice and latency); post mode offers the full 5-tone spread.
+export const CANDIDATE_COUNTS = { reply: 3, post: 5 };
 
 function candidateCount(mode) {
   return mode === "post" ? CANDIDATE_COUNTS.post : CANDIDATE_COUNTS.reply;
