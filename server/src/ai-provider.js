@@ -206,9 +206,19 @@ async function generateWithChatCompletions({ provider, apiKey, model, prompt, co
     requestBody.thinking = { type: "disabled" };
   }
 
+  const startedAt = Date.now();
   const completion = await client.chat.completions.create(requestBody);
+  const elapsedMs = Date.now() - startedAt;
 
   const content = completion.choices?.[0]?.message?.content || "";
+  // Timing + a cheap "is it still thinking?" signal: MiniMax leaves the chain-of-
+  // thought inline as <think>...</think> when thinking is on. Seeing think tags or
+  // a large completion_tokens count means the disable flag didn't take effect.
+  console.log(
+    `[AI ${provider}] model=${requestBody.model} elapsed=${elapsedMs}ms ` +
+      `completion_tokens=${completion.usage?.completion_tokens ?? "?"} ` +
+      `thinking=${/<think\b/i.test(content) ? "ON(<think> present)" : "off"}`
+  );
   return { replies: parseDeepseekReplies(content, replyCount), sources: [] };
 }
 
